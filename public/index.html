@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RM-ABP - Resource Manager for Agent-Based Programming</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>RM-ABP</h1>
+            <p>Resource Manager for Agent-Based Programming</p>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="panel">
+                    <h3>Agents</h3>
+                    <div id="agents-list" class="list"></div>
+                    <button id="add-agent-btn" class="btn primary">Add Agent</button>
+                </div>
+
+                <div class="panel">
+                    <h3>Resources</h3>
+                    <div id="resources-list" class="list"></div>
+                </div>
+            </div>
+
+            <div class="workspace">
+                <div class="workspace-header">
+                    <h3>Agent Workspace</h3>
+                    <div class="status-indicator">
+                        <span id="connection-status" class="status-dot"></span>
+                        <span>Real-time Updates</span>
+                    </div>
+                </div>
+                <div id="canvas-container" class="canvas-container">
+                    <canvas id="workspace-canvas" width="800" height="600"></canvas>
+                    <div id="cursors-overlay" class="cursors-overlay"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Creation Modal -->
+    <div id="agent-modal" class="modal">
+        <div class="modal-content">
+            <h3>Create New Agent</h3>
+            <form id="agent-form">
+                <div class="form-group">
+                    <label for="agent-name">Agent Name:</label>
+                    <input type="text" id="agent-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="agent-type">Agent Type:</label>
+                    <select id="agent-type">
+                        <option value="worker">Worker</option>
+                        <option value="coordinator">Coordinator</option>
+                        <option value="monitor">Monitor</option>
+                        <option value="analyzer">Analyzer</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="cancel-agent" class="btn secondary">Cancel</button>
+                    <button type="submit" class="btn primary">Create Agent</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

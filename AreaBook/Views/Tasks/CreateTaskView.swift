@@ -569,11 +569,11 @@ struct TaskTemplate: Identifiable {
     
     static let defaultTemplates = [
         TaskTemplate(
-            title: "Morning Scripture Study",
-            description: "Daily spiritual study and reflection",
+            title: "Morning Workout",
+            description: "Daily exercise routine to stay healthy",
             priority: .high,
-            subtasks: ["Read assigned chapter", "Write in journal", "Say prayer"],
-            estimatedDuration: 30 * 60
+            subtasks: ["Warm up", "Main workout", "Cool down and stretch"],
+            estimatedDuration: 45 * 60
         ),
         TaskTemplate(
             title: "Weekly Planning",
@@ -583,24 +583,24 @@ struct TaskTemplate: Identifiable {
             estimatedDuration: 45 * 60
         ),
         TaskTemplate(
-            title: "Family Home Evening",
-            description: "Prepare and conduct family spiritual time",
+            title: "Meal Prep Sunday",
+            description: "Prepare healthy meals for the week",
             priority: .high,
-            subtasks: ["Choose lesson topic", "Prepare activities", "Plan treats", "Gather materials"],
+            subtasks: ["Plan weekly menu", "Grocery shopping", "Batch cook meals", "Store in containers"],
+            estimatedDuration: 180 * 60
+        ),
+        TaskTemplate(
+            title: "Learning Session",
+            description: "Dedicated time for skill development",
+            priority: .medium,
+            subtasks: ["Choose learning material", "Take notes", "Practice exercises", "Review progress"],
             estimatedDuration: 60 * 60
         ),
         TaskTemplate(
-            title: "Temple Preparation",
-            description: "Prepare for temple attendance",
+            title: "House Cleaning",
+            description: "Weekly deep clean and organization",
             priority: .medium,
-            subtasks: ["Check temple schedule", "Prepare temple clothes", "Arrange transportation"],
-            estimatedDuration: 20 * 60
-        ),
-        TaskTemplate(
-            title: "Service Project",
-            description: "Plan and execute service for others",
-            priority: .medium,
-            subtasks: ["Identify service opportunity", "Gather resources", "Coordinate with others", "Follow up"],
+            subtasks: ["Declutter living spaces", "Vacuum and mop", "Clean bathrooms", "Organize closets"],
             estimatedDuration: 120 * 60
         )
     ]

@@ -21,14 +21,14 @@ struct CreateKeyIndicatorView: View {
     ]
     
     private let commonKIs = [
-        ("Scripture Study", "sessions", "#3B82F6"),
-        ("Prayer", "times", "#10B981"),
-        ("Service Hours", "hours", "#8B5CF6"),
-        ("Temple Attendance", "visits", "#F59E0B"),
-        ("Family History", "entries", "#EF4444"),
-        ("Missionary Work", "contacts", "#06B6D4"),
         ("Exercise", "sessions", "#84CC16"),
-        ("Teaching", "lessons", "#F97316")
+        ("Reading", "books", "#3B82F6"),
+        ("Water Intake", "glasses", "#06B6D4"),
+        ("Sleep Hours", "hours", "#8B5CF6"),
+        ("Meditation", "minutes", "#10B981"),
+        ("Learning", "hours", "#F59E0B"),
+        ("Social Time", "hours", "#EC4899"),
+        ("Creative Work", "hours", "#F97316")
     ]
     
     init(keyIndicatorToEdit: KeyIndicator? = nil) {

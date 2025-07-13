@@ -29,7 +29,7 @@ class SiriShortcutsManager: NSObject, ObservableObject {
     // MARK: - Update Key Indicator Shortcut
     func createUpdateKIShortcut() -> INShortcut? {
         let intent = UpdateKeyIndicatorIntent()
-        intent.suggestedInvocationPhrase = "Update my progress"
+        intent.suggestedInvocationPhrase = "Update my life tracker"
         
         return INShortcut(intent: intent)
     }
@@ -45,7 +45,7 @@ class SiriShortcutsManager: NSObject, ObservableObject {
     // MARK: - Daily KI Review Shortcut
     func createDailyKIReviewShortcut() -> INShortcut? {
         let intent = DailyKIReviewIntent()
-        intent.suggestedInvocationPhrase = "Review my key indicators"
+        intent.suggestedInvocationPhrase = "Review my life trackers"
         
         return INShortcut(intent: intent)
     }

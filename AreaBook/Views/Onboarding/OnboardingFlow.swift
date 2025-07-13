@@ -154,7 +154,7 @@ struct WelcomeScreen: View {
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
                 
-                Text("Your spiritual progress companion")
+                Text("Your life tracking companion")
                     .font(.title2)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -164,8 +164,8 @@ struct WelcomeScreen: View {
             
             // Features Preview
             VStack(spacing: 16) {
-                FeaturePreviewRow(icon: "target", title: "Track Key Indicators", description: "Monitor your spiritual goals weekly")
-                FeaturePreviewRow(icon: "calendar", title: "Schedule Events", description: "Plan and track spiritual activities")
+                FeaturePreviewRow(icon: "target", title: "Track Life Metrics", description: "Monitor your daily habits and goals")
+                FeaturePreviewRow(icon: "calendar", title: "Schedule Events", description: "Plan and organize your activities")
                 FeaturePreviewRow(icon: "checkmark.circle", title: "Manage Tasks", description: "Stay organized with actionable items")
                 FeaturePreviewRow(icon: "chart.bar", title: "View Progress", description: "See your growth over time")
             }
@@ -197,8 +197,8 @@ struct FeaturesScreen: View {
     private let features = [
         OnboardingFeature(
             icon: "target",
-            title: "Key Indicators",
-            description: "Track weekly spiritual goals like scripture study, prayer, and service",
+            title: "Life Trackers",
+            description: "Track weekly habits like exercise, reading, water intake, and more",
             color: .blue
         ),
         OnboardingFeature(
@@ -241,7 +241,7 @@ struct FeaturesScreen: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("Everything you need to track your spiritual journey")
+                Text("Everything you need to track your life goals and habits")
                     .font(.title3)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -286,19 +286,19 @@ struct KeyIndicatorsSetupScreen: View {
     @State private var showingCustomKI = false
     
     private let recommendedKIs = [
-        "Scripture Study", "Prayer", "Service Hours", "Temple Attendance",
-        "Family History", "Missionary Work", "Exercise", "Teaching"
+        "Exercise", "Reading", "Water Intake", "Sleep Hours",
+        "Meditation", "Learning", "Social Time", "Creative Work"
     ]
     
     var body: some View {
         VStack(spacing: 30) {
             // Header
             VStack(spacing: 16) {
-                Text("Set Up Key Indicators")
+                Text("Set Up Life Trackers")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("Choose the spiritual activities you want to track weekly")
+                Text("Choose the habits and activities you want to track weekly")
                     .font(.title3)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -326,7 +326,7 @@ struct KeyIndicatorsSetupScreen: View {
                         }
                     }
                     
-                    Button("Add Custom Key Indicator") {
+                    Button("Add Custom Life Tracker") {
                         showingCustomKI = true
                     }
                     .foregroundColor(.blue)
@@ -369,24 +369,24 @@ struct GoalsSetupScreen: View {
     
     private let sampleGoals = [
         SampleGoal(
-            title: "Daily Scripture Study",
-            description: "Establish a consistent daily scripture reading habit",
-            category: "Spiritual Growth"
+            title: "Daily Exercise Routine",
+            description: "Establish a consistent 30-minute daily workout habit",
+            category: "Health & Fitness"
         ),
         SampleGoal(
-            title: "Weekly Temple Attendance",
-            description: "Attend the temple regularly for spiritual strength",
-            category: "Temple Work"
+            title: "Read 12 Books This Year",
+            description: "Read one book per month to expand knowledge and skills",
+            category: "Personal Growth"
         ),
         SampleGoal(
-            title: "Monthly Service Project",
-            description: "Serve others in the community each month",
-            category: "Service"
+            title: "Learn a New Skill",
+            description: "Dedicate time each week to learning something new",
+            category: "Education"
         ),
         SampleGoal(
-            title: "Family History Progress",
-            description: "Complete family history research and temple work",
-            category: "Family History"
+            title: "Improve Work-Life Balance",
+            description: "Set boundaries and make time for family and hobbies",
+            category: "Life Balance"
         )
     ]
     
@@ -484,7 +484,7 @@ struct NotificationPermissionScreen: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("Get gentle reminders for your spiritual activities")
+                Text("Get gentle reminders for your daily habits and goals")
                     .font(.title3)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -494,8 +494,8 @@ struct NotificationPermissionScreen: View {
             
             // Benefits
             VStack(spacing: 20) {
-                NotificationBenefit(icon: "clock", title: "Task Reminders", description: "Never miss important spiritual activities")
-                NotificationBenefit(icon: "chart.bar", title: "Progress Updates", description: "Weekly summaries of your spiritual growth")
+                NotificationBenefit(icon: "clock", title: "Task Reminders", description: "Never miss important activities and habits")
+                NotificationBenefit(icon: "chart.bar", title: "Progress Updates", description: "Weekly summaries of your personal growth")
                 NotificationBenefit(icon: "star", title: "Encouragement", description: "Motivational messages to keep you going")
             }
             
@@ -558,7 +558,7 @@ struct CompletionScreen: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("Welcome to your spiritual journey, \(viewModel.userName)!")
+                Text("Welcome to your personal growth journey, \(viewModel.userName)!")
                     .font(.title3)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -573,7 +573,7 @@ struct CompletionScreen: View {
                 
                 SummaryCard(
                     icon: "target",
-                    title: "Key Indicators",
+                    title: "Life Trackers",
                     count: viewModel.selectedKeyIndicators.count + viewModel.customKeyIndicators.count,
                     color: .blue
                 )
@@ -802,7 +802,7 @@ struct CustomKICreationSheet: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("Key Indicator Details") {
+                Section("Life Tracker Details") {
                     TextField("Name (e.g., Family History)", text: $name)
                     TextField("Unit (e.g., entries, hours)", text: $unit)
                     TextField("Weekly Target (e.g., 3)", text: $weeklyTarget)
@@ -814,7 +814,7 @@ struct CustomKICreationSheet: View {
                     Text("Color selection")
                 }
             }
-            .navigationTitle("Custom Key Indicator")
+            .navigationTitle("Custom Life Tracker")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -849,14 +849,14 @@ struct KeyIndicatorTemplate {
     let color: String
     
     static let templates = [
-        KeyIndicatorTemplate(name: "Scripture Study", weeklyTarget: 7, unit: "sessions", color: "#3B82F6"),
-        KeyIndicatorTemplate(name: "Prayer", weeklyTarget: 14, unit: "times", color: "#10B981"),
-        KeyIndicatorTemplate(name: "Service Hours", weeklyTarget: 2, unit: "hours", color: "#8B5CF6"),
-        KeyIndicatorTemplate(name: "Temple Attendance", weeklyTarget: 1, unit: "visits", color: "#F59E0B"),
-        KeyIndicatorTemplate(name: "Family History", weeklyTarget: 3, unit: "entries", color: "#EF4444"),
-        KeyIndicatorTemplate(name: "Missionary Work", weeklyTarget: 5, unit: "contacts", color: "#06B6D4"),
-        KeyIndicatorTemplate(name: "Exercise", weeklyTarget: 4, unit: "sessions", color: "#84CC16"),
-        KeyIndicatorTemplate(name: "Teaching", weeklyTarget: 2, unit: "lessons", color: "#F97316")
+        KeyIndicatorTemplate(name: "Exercise", weeklyTarget: 5, unit: "sessions", color: "#84CC16"),
+        KeyIndicatorTemplate(name: "Reading", weeklyTarget: 7, unit: "books", color: "#3B82F6"),
+        KeyIndicatorTemplate(name: "Water Intake", weeklyTarget: 56, unit: "glasses", color: "#06B6D4"),
+        KeyIndicatorTemplate(name: "Sleep Hours", weeklyTarget: 56, unit: "hours", color: "#8B5CF6"),
+        KeyIndicatorTemplate(name: "Meditation", weeklyTarget: 210, unit: "minutes", color: "#10B981"),
+        KeyIndicatorTemplate(name: "Learning", weeklyTarget: 10, unit: "hours", color: "#F59E0B"),
+        KeyIndicatorTemplate(name: "Social Time", weeklyTarget: 8, unit: "hours", color: "#EC4899"),
+        KeyIndicatorTemplate(name: "Creative Work", weeklyTarget: 6, unit: "hours", color: "#F97316")
     ]
 }
 

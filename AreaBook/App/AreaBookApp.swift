@@ -5,7 +5,7 @@ import Firebase
 struct AreaBookApp: App {
     
     init() {
-        FirebaseApp.configure()
+        FirebaseService.shared.configure()
     }
     
     var body: some Scene {

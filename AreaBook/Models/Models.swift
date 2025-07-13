@@ -314,6 +314,22 @@ enum GroupRole: String, Codable, CaseIterable {
     case viewer = "viewer"
 }
 
+struct GroupSettings: Codable {
+    var isPublic: Bool
+    var allowInvitations: Bool
+    var shareProgress: Bool
+    var allowChallenges: Bool
+    var notificationSettings: [String: Bool]
+    
+    init(isPublic: Bool = false, allowInvitations: Bool = true, shareProgress: Bool = true, allowChallenges: Bool = true, notificationSettings: [String: Bool] = [:]) {
+        self.isPublic = isPublic
+        self.allowInvitations = allowInvitations
+        self.shareProgress = shareProgress
+        self.allowChallenges = allowChallenges
+        self.notificationSettings = notificationSettings
+    }
+}
+
 struct GroupPermissions: Codable {
     var canViewGoals: Bool
     var canViewEvents: Bool

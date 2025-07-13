@@ -232,7 +232,7 @@ class CollaborationManager: ObservableObject {
     
     func canUserModifyGroupData(groupId: String, userId: String) async throws -> Bool {
         let role = try await getUserRoleInGroup(groupId: groupId, userId: userId)
-        return role == .admin || role == .moderator
+        return role == .admin || role == .leader
     }
     
     // MARK: - Private Helpers

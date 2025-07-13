@@ -693,8 +693,9 @@ struct GroupMemberRow: View {
     private var roleColor: Color {
         switch member.role {
         case .admin: return .red
-        case .moderator: return .orange
+        case .leader: return .orange
         case .member: return .blue
+        case .viewer: return .gray
         }
     }
 }

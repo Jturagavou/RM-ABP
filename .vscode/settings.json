@@ -1,0 +1,22 @@
+{
+    "files.associations": {
+        "*.swift": "swift"
+    },
+    "editor.defaultFormatter": "swift-server.swift-format",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll": true
+    },
+    "swift.path": "/usr/bin/swift",
+    "sourcekit-lsp.serverPath": "/usr/bin/sourcekit-lsp",
+    "files.exclude": {
+        "**/build/**": true,
+        "**/.build/**": true,
+        "**/DerivedData/**": true
+    },
+    "search.exclude": {
+        "**/build/**": true,
+        "**/.build/**": true,
+        "**/DerivedData/**": true
+    }
+}

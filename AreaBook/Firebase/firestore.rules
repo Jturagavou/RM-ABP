@@ -1,0 +1,261 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // MARK: - User Data Security Rules
+    
+    // Users can only access their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // User's private collections (only accessible to the user)
+      match /keyIndicators/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /goals/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /tasks/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /events/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /notes/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // User's group memberships (only accessible to the user)
+      match /groups/{groupId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // User's challenge participations
+      match /challenge_participations/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Group members can read challenge progress for leaderboards
+        allow read: if request.auth != null && 
+          isGroupMember(resource.data.groupId, request.auth.uid);
+      }
+      
+      // User's notifications
+      match /notifications/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // MARK: - Group Collaboration Security Rules
+    
+    // Groups - Access based on membership
+    match /groups/{groupId} {
+      // Anyone can create a group
+      allow create: if request.auth != null && 
+        request.auth.uid == resource.data.creatorId;
+      
+      // Only group members can read group details
+      allow read: if request.auth != null && 
+        (isGroupMember(groupId, request.auth.uid) || 
+         resource.data.settings.isPublic == true);
+      
+      // Only admins and moderators can update group settings
+      allow update: if request.auth != null && 
+        (getUserRoleInGroup(groupId, request.auth.uid) in ['admin', 'moderator']);
+      
+      // Only the creator or admin can delete a group
+      allow delete: if request.auth != null && 
+        (request.auth.uid == resource.data.creatorId || 
+         getUserRoleInGroup(groupId, request.auth.uid) == 'admin');
+      
+      // MARK: - Group Sub-collections
+      
+      // Progress Shares - Group members can read, only share own progress
+      match /progress_shares/{shareId} {
+        allow read: if request.auth != null && 
+          isGroupMember(groupId, request.auth.uid);
+        
+        allow create: if request.auth != null && 
+          isGroupMember(groupId, request.auth.uid) && 
+          request.auth.uid == resource.data.userId;
+        
+        allow update, delete: if request.auth != null && 
+          (request.auth.uid == resource.data.userId || 
+           getUserRoleInGroup(groupId, request.auth.uid) in ['admin', 'moderator']);
+      }
+      
+      // Group Challenges
+      match /challenges/{challengeId} {
+        allow read: if request.auth != null && 
+          isGroupMember(groupId, request.auth.uid);
+        
+        allow create: if request.auth != null && 
+          isGroupMember(groupId, request.auth.uid) && 
+          getGroupSettings(groupId).allowChallenges == true;
+        
+        allow update: if request.auth != null && 
+          (request.auth.uid == resource.data.creatorId || 
+           getUserRoleInGroup(groupId, request.auth.uid) in ['admin', 'moderator']);
+        
+        allow delete: if request.auth != null && 
+          (request.auth.uid == resource.data.creatorId || 
+           getUserRoleInGroup(groupId, request.auth.uid) == 'admin');
+      }
+      
+      // Group Messages/Chat
+      match /messages/{messageId} {
+        allow read: if request.auth != null && 
+          isGroupMember(groupId, request.auth.uid);
+        
+        allow create: if request.auth != null && 
+          isGroupMember(groupId, request.auth.uid) && 
+          request.auth.uid == resource.data.userId;
+        
+        allow update, delete: if request.auth != null && 
+          (request.auth.uid == resource.data.userId || 
+           getUserRoleInGroup(groupId, request.auth.uid) in ['admin', 'moderator']);
+      }
+      
+      // Group Shared Goals (Optional: goals shared within group)
+      match /shared_goals/{goalId} {
+        allow read: if request.auth != null && 
+          isGroupMember(groupId, request.auth.uid);
+        
+        allow create: if request.auth != null && 
+          isGroupMember(groupId, request.auth.uid);
+        
+        allow update: if request.auth != null && 
+          (request.auth.uid == resource.data.creatorId || 
+           getUserRoleInGroup(groupId, request.auth.uid) in ['admin', 'moderator']);
+        
+        allow delete: if request.auth != null && 
+          (request.auth.uid == resource.data.creatorId || 
+           getUserRoleInGroup(groupId, request.auth.uid) == 'admin');
+      }
+    }
+    
+    // MARK: - Public Data (Read-only)
+    
+    // Public group directory (for discovery)
+    match /public_groups/{groupId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Managed by cloud functions
+    }
+    
+    // User profiles (limited public info for group members)
+    match /user_profiles/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // MARK: - Helper Functions
+    
+    // Check if user is a member of a specific group
+    function isGroupMember(groupId, userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/groups/$(groupId));
+    }
+    
+    // Get user's role in a specific group
+    function getUserRoleInGroup(groupId, userId) {
+      return get(/databases/$(database)/documents/users/$(userId)/groups/$(groupId)).data.role;
+    }
+    
+    // Check if user has specific role in group
+    function hasRoleInGroup(groupId, userId, role) {
+      return getUserRoleInGroup(groupId, userId) == role;
+    }
+    
+    // Check if user is admin or moderator in group
+    function canModerateGroup(groupId, userId) {
+      return getUserRoleInGroup(groupId, userId) in ['admin', 'moderator'];
+    }
+    
+    // Get group settings
+    function getGroupSettings(groupId) {
+      return get(/databases/$(database)/documents/groups/$(groupId)).data.settings;
+    }
+    
+    // Check if group allows progress sharing
+    function groupAllowsProgressSharing(groupId) {
+      return getGroupSettings(groupId).shareProgress == true;
+    }
+    
+    // Validate group member data structure
+    function isValidGroupMember(memberData) {
+      return memberData.keys().hasAll(['userId', 'role', 'joinedAt']) &&
+             memberData.role in ['admin', 'moderator', 'member'] &&
+             memberData.userId is string &&
+             memberData.joinedAt is timestamp;
+    }
+    
+    // Validate progress share data structure
+    function isValidProgressShare(shareData) {
+      return shareData.keys().hasAll(['userId', 'groupId', 'type', 'data', 'timestamp']) &&
+             shareData.type in ['ki_update', 'goal_progress', 'task_completed', 'milestone', 'achievement'] &&
+             shareData.userId is string &&
+             shareData.groupId is string &&
+             shareData.timestamp is timestamp;
+    }
+    
+    // MARK: - Additional Security Rules
+    
+    // Group Invitations
+    match /group_invitations/{invitationId} {
+      // Sender can create invitation
+      allow create: if request.auth != null && 
+        request.auth.uid == resource.data.fromUserId &&
+        isGroupMember(resource.data.groupId, request.auth.uid);
+      
+      // Recipient can read and update (accept/decline)
+      allow read, update: if request.auth != null && 
+        (request.auth.uid == resource.data.toUserId || 
+         request.auth.uid == resource.data.fromUserId);
+      
+      // Sender or group admin can delete
+      allow delete: if request.auth != null && 
+        (request.auth.uid == resource.data.fromUserId || 
+         getUserRoleInGroup(resource.data.groupId, request.auth.uid) in ['admin', 'moderator']);
+    }
+    
+    // MARK: - Data Validation Rules
+    
+    // Ensure data integrity for critical operations
+    match /groups/{groupId} {
+      allow write: if validateGroupData(resource.data);
+    }
+    
+    match /groups/{groupId}/progress_shares/{shareId} {
+      allow write: if validateProgressShareData(resource.data);
+    }
+    
+    // Validation functions
+    function validateGroupData(data) {
+      return data.keys().hasAll(['id', 'name', 'creatorId', 'members', 'settings']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.creatorId is string &&
+             data.members is list &&
+             data.settings is map;
+    }
+    
+    function validateProgressShareData(data) {
+      return data.keys().hasAll(['userId', 'groupId', 'type', 'timestamp']) &&
+             data.userId is string &&
+             data.groupId is string &&
+             data.type in ['ki_update', 'goal_progress', 'task_completed', 'milestone', 'achievement'] &&
+             data.timestamp is timestamp;
+    }
+    
+    // MARK: - Rate Limiting (Basic)
+    
+    // Limit progress shares per user per group per day
+    match /groups/{groupId}/progress_shares/{shareId} {
+      allow create: if request.auth != null && 
+        isGroupMember(groupId, request.auth.uid) &&
+        request.auth.uid == resource.data.userId &&
+        // Basic rate limiting could be implemented here with cloud functions
+        true;
+    }
+  }
+}

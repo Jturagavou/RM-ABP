@@ -1,0 +1,31 @@
+{
+  "name": "google-calendar-clone",
+  "version": "1.0.0",
+  "description": "A fully functional Google Calendar clone with modern UI and comprehensive event management features",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "dev": "python -m http.server 8000",
+    "serve": "python -m http.server 8000"
+  },
+  "keywords": [
+    "calendar",
+    "google-calendar",
+    "events",
+    "scheduling",
+    "javascript",
+    "html",
+    "css"
+  ],
+  "author": "Calendar Developer",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

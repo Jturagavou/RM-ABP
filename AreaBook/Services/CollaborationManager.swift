@@ -23,11 +23,11 @@ class CollaborationManager: ObservableObject {
             name: name,
             description: description,
             creatorId: creatorId,
-            members: [GroupMember(userId: creatorId, role: .admin, joinedAt: Date())],
+            members: [GroupMember(userId: creatorId, role: .admin)],
             settings: GroupSettings()
         )
         
-        try await db.collection("groups").document(group.id).setData(group.firestoreData)
+        try await db.collection("groups").document(group.id).setData(group.toFirestoreData())
         
         // Add to user's groups
         try await addUserToGroup(userId: creatorId, groupId: group.id, role: .admin)
@@ -47,9 +47,9 @@ class CollaborationManager: ObservableObject {
         }
         
         // Add user to group
-        let member = GroupMember(userId: userId, role: .member, joinedAt: Date())
+        let member = GroupMember(userId: userId, role: .member)
         try await db.collection("groups").document(groupId).updateData([
-            "members": FieldValue.arrayUnion([member.firestoreData])
+            "members": FieldValue.arrayUnion([member.toFirestoreData()])
         ])
         
         // Add to user's groups
@@ -68,7 +68,7 @@ class CollaborationManager: ObservableObject {
         group.members.removeAll { $0.userId == userId }
         
         try await groupRef.updateData([
-            "members": group.members.map { $0.firestoreData }
+            "members": group.members.map { $0.toFirestoreData() }
         ])
         
         // Remove from user's groups
@@ -89,7 +89,7 @@ class CollaborationManager: ObservableObject {
         
         try await db.collection("groups").document(groupId)
             .collection("progress_shares").document(progressShare.id)
-            .setData(progressShare.firestoreData)
+            .setData(progressShare.toFirestoreData())
         
         // Send notification to group members
         try await notifyGroupMembers(groupId: groupId, notification: GroupNotification(
@@ -119,7 +119,7 @@ class CollaborationManager: ObservableObject {
         
         try await db.collection("groups").document(groupId)
             .collection("challenges").document(newChallenge.id)
-            .setData(newChallenge.firestoreData)
+            .setData(newChallenge.toFirestoreData())
         
         // Notify group members
         try await notifyGroupMembers(groupId: groupId, notification: GroupNotification(
@@ -281,7 +281,7 @@ class CollaborationManager: ObservableObject {
         for member in group.members {
             try await db.collection("users").document(member.userId)
                 .collection("notifications").document(notification.id)
-                .setData(notification.firestoreData)
+                .setData(notification.toFirestoreData())
         }
     }
     
@@ -291,193 +291,13 @@ class CollaborationManager: ObservableObject {
     }
 }
 
-// MARK: - Supporting Models
 
-struct ProgressShare: Identifiable, Codable {
-    let id: String
-    let userId: String
-    let groupId: String
-    let type: ProgressShareType
-    let data: [String: Any]
-    let timestamp: Date
-    
-    enum CodingKeys: String, CodingKey {
-        case id, userId, groupId, type, timestamp
-    }
-    
-    var firestoreData: [String: Any] {
-        return [
-            "id": id,
-            "userId": userId,
-            "groupId": groupId,
-            "type": type.rawValue,
-            "data": data,
-            "timestamp": Timestamp(date: timestamp)
-        ]
-    }
-    
-    init(from document: DocumentSnapshot) {
-        let data = document.data() ?? [:]
-        self.id = data["id"] as? String ?? ""
-        self.userId = data["userId"] as? String ?? ""
-        self.groupId = data["groupId"] as? String ?? ""
-        self.type = ProgressShareType(rawValue: data["type"] as? String ?? "") ?? .kiUpdate
-        self.data = data["data"] as? [String: Any] ?? [:]
-        self.timestamp = (data["timestamp"] as? Timestamp)?.dateValue() ?? Date()
-    }
-    
-    init(id: String, userId: String, groupId: String, type: ProgressShareType, data: [String: Any], timestamp: Date) {
-        self.id = id
-        self.userId = userId
-        self.groupId = groupId
-        self.type = type
-        self.data = data
-        self.timestamp = timestamp
-    }
-}
 
-enum ProgressShareType: String, CaseIterable {
-    case kiUpdate = "ki_update"
-    case goalProgress = "goal_progress"
-    case taskCompleted = "task_completed"
-    case milestone = "milestone"
-    case achievement = "achievement"
-}
 
-struct GroupChallenge: Identifiable, Codable {
-    let id: String
-    var groupId: String
-    var creatorId: String
-    let title: String
-    let description: String
-    let type: ChallengeType
-    let target: Double
-    let unit: String
-    let startDate: Date
-    let endDate: Date
-    var participants: [String]
-    var isActive: Bool
-    let createdAt: Date
-    
-    var firestoreData: [String: Any] {
-        return [
-            "id": id,
-            "groupId": groupId,
-            "creatorId": creatorId,
-            "title": title,
-            "description": description,
-            "type": type.rawValue,
-            "target": target,
-            "unit": unit,
-            "startDate": Timestamp(date: startDate),
-            "endDate": Timestamp(date: endDate),
-            "participants": participants,
-            "isActive": isActive,
-            "createdAt": Timestamp(date: createdAt)
-        ]
-    }
-    
-    init(from document: DocumentSnapshot) {
-        let data = document.data() ?? [:]
-        self.id = data["id"] as? String ?? ""
-        self.groupId = data["groupId"] as? String ?? ""
-        self.creatorId = data["creatorId"] as? String ?? ""
-        self.title = data["title"] as? String ?? ""
-        self.description = data["description"] as? String ?? ""
-        self.type = ChallengeType(rawValue: data["type"] as? String ?? "") ?? .individual
-        self.target = data["target"] as? Double ?? 0
-        self.unit = data["unit"] as? String ?? ""
-        self.startDate = (data["startDate"] as? Timestamp)?.dateValue() ?? Date()
-        self.endDate = (data["endDate"] as? Timestamp)?.dateValue() ?? Date()
-        self.participants = data["participants"] as? [String] ?? []
-        self.isActive = data["isActive"] as? Bool ?? true
-        self.createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-    }
-    
-    init(title: String, description: String, type: ChallengeType, target: Double, unit: String, startDate: Date, endDate: Date) {
-        self.id = UUID().uuidString
-        self.groupId = ""
-        self.creatorId = ""
-        self.title = title
-        self.description = description
-        self.type = type
-        self.target = target
-        self.unit = unit
-        self.startDate = startDate
-        self.endDate = endDate
-        self.participants = []
-        self.isActive = true
-        self.createdAt = Date()
-    }
-}
 
-enum ChallengeType: String, CaseIterable {
-    case individual = "individual"
-    case team = "team"
-    case competition = "competition"
-}
 
-struct GroupNotification: Identifiable, Codable {
-    let id: String
-    let type: NotificationType
-    let fromUserId: String
-    let message: String
-    let data: [String: Any]
-    let timestamp: Date
-    var isRead: Bool
-    
-    enum CodingKeys: String, CodingKey {
-        case id, type, fromUserId, message, timestamp, isRead
-    }
-    
-    var firestoreData: [String: Any] {
-        return [
-            "id": id,
-            "type": type.rawValue,
-            "fromUserId": fromUserId,
-            "message": message,
-            "data": data,
-            "timestamp": Timestamp(date: timestamp),
-            "isRead": isRead
-        ]
-    }
-    
-    init(type: NotificationType, fromUserId: String, message: String, data: [String: Any] = [:]) {
-        self.id = UUID().uuidString
-        self.type = type
-        self.fromUserId = fromUserId
-        self.message = message
-        self.data = data
-        self.timestamp = Date()
-        self.isRead = false
-    }
-}
 
-enum NotificationType: String, CaseIterable {
-    case progressUpdate = "progress_update"
-    case challengeCreated = "challenge_created"
-    case challengeCompleted = "challenge_completed"
-    case groupInvitation = "group_invitation"
-    case milestone = "milestone"
-}
 
-struct GroupInvitation: Identifiable, Codable {
-    let id: String
-    let groupId: String
-    let groupName: String
-    let fromUserId: String
-    let toUserId: String
-    let message: String
-    let createdAt: Date
-    var status: InvitationStatus
-    
-    enum InvitationStatus: String, CaseIterable {
-        case pending = "pending"
-        case accepted = "accepted"
-        case declined = "declined"
-        case expired = "expired"
-    }
-}
 
 enum CollaborationError: Error {
     case groupNotFound
@@ -487,87 +307,3 @@ enum CollaborationError: Error {
     case challengeNotFound
 }
 
-// MARK: - Extensions for AccountabilityGroup
-
-extension AccountabilityGroup {
-    var firestoreData: [String: Any] {
-        return [
-            "id": id,
-            "name": name,
-            "description": description,
-            "creatorId": creatorId,
-            "members": members.map { $0.firestoreData },
-            "settings": settings.firestoreData,
-            "invitationCode": invitationCode,
-            "createdAt": Timestamp(date: createdAt),
-            "updatedAt": Timestamp(date: updatedAt)
-        ]
-    }
-    
-    init?(from document: DocumentSnapshot) {
-        guard let data = document.data() else { return nil }
-        
-        self.id = data["id"] as? String ?? ""
-        self.name = data["name"] as? String ?? ""
-        self.description = data["description"] as? String ?? ""
-        self.creatorId = data["creatorId"] as? String ?? ""
-        
-        if let membersData = data["members"] as? [[String: Any]] {
-            self.members = membersData.compactMap { GroupMember(from: $0) }
-        } else {
-            self.members = []
-        }
-        
-        if let settingsData = data["settings"] as? [String: Any] {
-            self.settings = GroupSettings(from: settingsData)
-        } else {
-            self.settings = GroupSettings()
-        }
-        
-        self.invitationCode = data["invitationCode"] as? String ?? ""
-        self.createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-        self.updatedAt = (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
-    }
-}
-
-extension GroupMember {
-    var firestoreData: [String: Any] {
-        return [
-            "userId": userId,
-            "role": role.rawValue,
-            "joinedAt": Timestamp(date: joinedAt),
-            "lastActive": Timestamp(date: lastActive)
-        ]
-    }
-    
-    init?(from data: [String: Any]) {
-        guard let userId = data["userId"] as? String,
-              let roleString = data["role"] as? String,
-              let role = GroupRole(rawValue: roleString) else { return nil }
-        
-        self.userId = userId
-        self.role = role
-        self.joinedAt = (data["joinedAt"] as? Timestamp)?.dateValue() ?? Date()
-        self.lastActive = (data["lastActive"] as? Timestamp)?.dateValue() ?? Date()
-    }
-}
-
-extension GroupSettings {
-    var firestoreData: [String: Any] {
-        return [
-            "isPublic": isPublic,
-            "allowInvitations": allowInvitations,
-            "shareProgress": shareProgress,
-            "allowChallenges": allowChallenges,
-            "notificationSettings": notificationSettings
-        ]
-    }
-    
-    init(from data: [String: Any]) {
-        self.isPublic = data["isPublic"] as? Bool ?? false
-        self.allowInvitations = data["allowInvitations"] as? Bool ?? true
-        self.shareProgress = data["shareProgress"] as? Bool ?? true
-        self.allowChallenges = data["allowChallenges"] as? Bool ?? true
-        self.notificationSettings = data["notificationSettings"] as? [String: Bool] ?? [:]
-    }
-}

@@ -39,9 +39,26 @@ struct GroupsView: View {
                                 showingCreateGroup = true
                             }
                         } else {
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                                ForEach(collaborationManager.currentUserGroups) { group in
-                                    GroupCard(group: group) {
+                            // Group by hierarchy: Zone -> District -> Companionship
+                            let zoneGroups = collaborationManager.currentUserGroups.filter { $0.type == .zone }
+                            let districtGroups = collaborationManager.currentUserGroups.filter { $0.type == .district }
+                            let companionshipGroups = collaborationManager.currentUserGroups.filter { $0.type == .companionship }
+                            
+                            VStack(alignment: .leading, spacing: 20) {
+                                if !zoneGroups.isEmpty {
+                                    GroupTypeSection(title: "Zone", groups: zoneGroups) { group in
+                                        selectedGroup = group
+                                    }
+                                }
+                                
+                                if !districtGroups.isEmpty {
+                                    GroupTypeSection(title: "District", groups: districtGroups) { group in
+                                        selectedGroup = group
+                                    }
+                                }
+                                
+                                if !companionshipGroups.isEmpty {
+                                    GroupTypeSection(title: "Companionship", groups: companionshipGroups) { group in
                                         selectedGroup = group
                                     }
                                 }
@@ -605,6 +622,57 @@ struct GroupDetailView: View {
                     // Members List
                     GroupMembersSection(members: group.members)
                     
+                    // Action Buttons
+                    VStack(spacing: 12) {
+                        NavigationLink(destination: GroupCommentsView(targetType: .goal, targetId: group.id, groupId: group.id)) {
+                            HStack {
+                                Image(systemName: "bubble.left.and.bubble.right")
+                                    .foregroundColor(.blue)
+                                Text("Comments & Feedback")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.gray)
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        NavigationLink(destination: FullSyncManagementView(groupId: group.id)) {
+                            HStack {
+                                Image(systemName: "eye.fill")
+                                    .foregroundColor(.blue)
+                                Text("Full Sync Management")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.gray)
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        NavigationLink(destination: GroupTaskAssignmentView(groupId: group.id)) {
+                            HStack {
+                                Image(systemName: "person.2.fill")
+                                    .foregroundColor(.blue)
+                                Text("Task Assignments")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.gray)
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    
                     // Recent Activity
                     // TODO: Show group-specific activity
                     
@@ -734,6 +802,114 @@ struct SettingRow: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
+    }
+}
+
+struct GroupTypeSection: View {
+    let title: String
+    let groups: [AccountabilityGroup]
+    let onGroupTap: (AccountabilityGroup) -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(title)
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("\(groups.count)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.systemGray5))
+                    .cornerRadius(8)
+            }
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                ForEach(groups) { group in
+                    EnhancedGroupCard(group: group) {
+                        onGroupTap(group)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct EnhancedGroupCard: View {
+    let group: AccountabilityGroup
+    let action: () -> Void
+    
+    private var typeColor: Color {
+        switch group.type {
+        case .zone: return .purple
+        case .district: return .blue
+        case .companionship: return .green
+        }
+    }
+    
+    private var typeIcon: String {
+        switch group.type {
+        case .zone: return "globe.americas.fill"
+        case .district: return "building.2.fill"
+        case .companionship: return "person.2.fill"
+        }
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: typeIcon)
+                        .foregroundColor(typeColor)
+                        .font(.title2)
+                    
+                    Spacer()
+                    
+                    Text(group.type.rawValue.capitalized)
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(typeColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(typeColor.opacity(0.1))
+                        .cornerRadius(8)
+                }
+                
+                Text(group.name)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                
+                HStack {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2")
+                            .foregroundColor(.secondary)
+                        Text("\(group.members.count)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Text("Active")
+                        .font(.caption2)
+                        .foregroundColor(.green)
+                        .fontWeight(.medium)
+                }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+            .shadow(radius: 1)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

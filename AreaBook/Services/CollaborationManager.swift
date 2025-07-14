@@ -10,6 +10,9 @@ class CollaborationManager: ObservableObject {
     @Published var groupInvitations: [GroupInvitation] = []
     @Published var sharedProgress: [String: [ProgressShare]] = [:] // groupId: [progress]
     @Published var groupChallenges: [GroupChallenge] = []
+    @Published var groupComments: [String: [GroupComment]] = [:] // targetId: [comments]
+    @Published var fullSyncShares: [FullSyncShare] = []
+    @Published var groupTaskAssignments: [GroupTaskAssignment] = []
     
     private var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
@@ -569,5 +572,213 @@ extension GroupSettings {
         self.shareProgress = data["shareProgress"] as? Bool ?? true
         self.allowChallenges = data["allowChallenges"] as? Bool ?? true
         self.notificationSettings = data["notificationSettings"] as? [String: Bool] ?? [:]
+    }
+    
+    // MARK: - Group Comments and Feedback
+    func addComment(to targetType: CommentTargetType, targetId: String, content: String, groupId: String, authorId: String, parentCommentId: String? = nil) async throws {
+        let comment = GroupComment(groupId: groupId, authorId: authorId, targetType: targetType, targetId: targetId, content: content, parentCommentId: parentCommentId)
+        
+        try await db.collection("groups").document(groupId).collection("comments").document(comment.id).setData([
+            "id": comment.id,
+            "groupId": comment.groupId,
+            "authorId": comment.authorId,
+            "targetType": comment.targetType.rawValue,
+            "targetId": comment.targetId,
+            "content": comment.content,
+            "createdAt": Timestamp(date: comment.createdAt),
+            "updatedAt": Timestamp(date: comment.updatedAt),
+            "parentCommentId": comment.parentCommentId ?? "",
+            "reactions": comment.reactions.map { reaction in
+                [
+                    "id": reaction.id,
+                    "userId": reaction.userId,
+                    "type": reaction.type.rawValue,
+                    "createdAt": Timestamp(date: reaction.createdAt)
+                ]
+            }
+        ])
+        
+        // Update local state
+        if groupComments[targetId] == nil {
+            groupComments[targetId] = []
+        }
+        groupComments[targetId]?.append(comment)
+    }
+    
+    func loadComments(for targetId: String, groupId: String) async throws {
+        let snapshot = try await db.collection("groups").document(groupId).collection("comments")
+            .whereField("targetId", isEqualTo: targetId)
+            .order(by: "createdAt", descending: false)
+            .getDocuments()
+        
+        let comments = snapshot.documents.compactMap { doc -> GroupComment? in
+            let data = doc.data()
+            return GroupComment(
+                id: data["id"] as? String ?? "",
+                groupId: data["groupId"] as? String ?? "",
+                authorId: data["authorId"] as? String ?? "",
+                targetType: CommentTargetType(rawValue: data["targetType"] as? String ?? "") ?? .goal,
+                targetId: data["targetId"] as? String ?? "",
+                content: data["content"] as? String ?? "",
+                createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
+                updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date(),
+                parentCommentId: data["parentCommentId"] as? String,
+                reactions: (data["reactions"] as? [[String: Any]] ?? []).compactMap { reactionData in
+                    guard let id = reactionData["id"] as? String,
+                          let userId = reactionData["userId"] as? String,
+                          let typeString = reactionData["type"] as? String,
+                          let type = ReactionType(rawValue: typeString),
+                          let createdAt = (reactionData["createdAt"] as? Timestamp)?.dateValue() else {
+                        return nil
+                    }
+                    return CommentReaction(id: id, userId: userId, type: type, createdAt: createdAt)
+                }
+            )
+        }
+        
+        groupComments[targetId] = comments
+    }
+    
+    func addReactionToComment(commentId: String, groupId: String, userId: String, reactionType: ReactionType) async throws {
+        let reaction = CommentReaction(userId: userId, type: reactionType)
+        
+        try await db.collection("groups").document(groupId).collection("comments").document(commentId).updateData([
+            "reactions": FieldValue.arrayUnion([[
+                "id": reaction.id,
+                "userId": reaction.userId,
+                "type": reaction.type.rawValue,
+                "createdAt": Timestamp(date: reaction.createdAt)
+            ]])
+        ])
+    }
+    
+    // MARK: - Full Sync Management
+    func createFullSyncShare(ownerId: String, groupId: String, sharedWithUserId: String, permissions: SyncPermissions, expiresAt: Date? = nil) async throws -> FullSyncShare {
+        let syncShare = FullSyncShare(ownerId: ownerId, groupId: groupId, sharedWithUserId: sharedWithUserId, permissions: permissions, expiresAt: expiresAt)
+        
+        try await db.collection("fullSyncShares").document(syncShare.id).setData([
+            "id": syncShare.id,
+            "ownerId": syncShare.ownerId,
+            "groupId": syncShare.groupId,
+            "sharedWithUserId": syncShare.sharedWithUserId,
+            "permissions": [
+                "canViewGoals": permissions.canViewGoals,
+                "canViewEvents": permissions.canViewEvents,
+                "canViewTasks": permissions.canViewTasks,
+                "canViewNotes": permissions.canViewNotes,
+                "canViewKIs": permissions.canViewKIs,
+                "canViewDashboard": permissions.canViewDashboard
+            ],
+            "createdAt": Timestamp(date: syncShare.createdAt),
+            "expiresAt": syncShare.expiresAt != nil ? Timestamp(date: syncShare.expiresAt!) : nil,
+            "isActive": syncShare.isActive
+        ])
+        
+        fullSyncShares.append(syncShare)
+        return syncShare
+    }
+    
+    func loadFullSyncShares(for userId: String) async throws {
+        let snapshot = try await db.collection("fullSyncShares")
+            .whereField("sharedWithUserId", isEqualTo: userId)
+            .whereField("isActive", isEqualTo: true)
+            .getDocuments()
+        
+        let shares = snapshot.documents.compactMap { doc -> FullSyncShare? in
+            let data = doc.data()
+            let permissionsData = data["permissions"] as? [String: Bool] ?? [:]
+            let permissions = SyncPermissions(
+                canViewGoals: permissionsData["canViewGoals"] ?? true,
+                canViewEvents: permissionsData["canViewEvents"] ?? true,
+                canViewTasks: permissionsData["canViewTasks"] ?? true,
+                canViewNotes: permissionsData["canViewNotes"] ?? true,
+                canViewKIs: permissionsData["canViewKIs"] ?? true,
+                canViewDashboard: permissionsData["canViewDashboard"] ?? true
+            )
+            
+            return FullSyncShare(
+                id: data["id"] as? String ?? "",
+                ownerId: data["ownerId"] as? String ?? "",
+                groupId: data["groupId"] as? String ?? "",
+                sharedWithUserId: data["sharedWithUserId"] as? String ?? "",
+                permissions: permissions,
+                createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
+                expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue(),
+                isActive: data["isActive"] as? Bool ?? true
+            )
+        }
+        
+        fullSyncShares = shares
+    }
+    
+    func revokeFullSyncShare(shareId: String) async throws {
+        try await db.collection("fullSyncShares").document(shareId).updateData([
+            "isActive": false
+        ])
+        
+        fullSyncShares.removeAll { $0.id == shareId }
+    }
+    
+    // MARK: - Group Task Assignment
+    func assignTask(groupId: String, assignedById: String, assignedToId: String, taskId: String, goalId: String? = nil, dueDate: Date, priority: TaskPriority = .medium, notes: String? = nil) async throws -> GroupTaskAssignment {
+        let assignment = GroupTaskAssignment(groupId: groupId, assignedById: assignedById, assignedToId: assignedToId, taskId: taskId, goalId: goalId, dueDate: dueDate, priority: priority, notes: notes)
+        
+        try await db.collection("groups").document(groupId).collection("taskAssignments").document(assignment.id).setData([
+            "id": assignment.id,
+            "groupId": assignment.groupId,
+            "assignedById": assignment.assignedById,
+            "assignedToId": assignment.assignedToId,
+            "taskId": assignment.taskId,
+            "goalId": assignment.goalId ?? "",
+            "dueDate": Timestamp(date: assignment.dueDate),
+            "priority": assignment.priority.rawValue,
+            "status": assignment.status.rawValue,
+            "createdAt": Timestamp(date: assignment.createdAt),
+            "completedAt": assignment.completedAt != nil ? Timestamp(date: assignment.completedAt!) : nil,
+            "notes": assignment.notes ?? ""
+        ])
+        
+        groupTaskAssignments.append(assignment)
+        return assignment
+    }
+    
+    func updateTaskAssignmentStatus(assignmentId: String, status: AssignmentStatus) async throws {
+        let completedAt = status == .completed ? Date() : nil
+        
+        try await db.collection("taskAssignments").document(assignmentId).updateData([
+            "status": status.rawValue,
+            "completedAt": completedAt != nil ? Timestamp(date: completedAt!) : nil
+        ])
+        
+        if let index = groupTaskAssignments.firstIndex(where: { $0.id == assignmentId }) {
+            groupTaskAssignments[index].status = status
+            groupTaskAssignments[index].completedAt = completedAt
+        }
+    }
+    
+    func loadTaskAssignments(for groupId: String) async throws {
+        let snapshot = try await db.collection("groups").document(groupId).collection("taskAssignments")
+            .order(by: "createdAt", descending: true)
+            .getDocuments()
+        
+        let assignments = snapshot.documents.compactMap { doc -> GroupTaskAssignment? in
+            let data = doc.data()
+            return GroupTaskAssignment(
+                id: data["id"] as? String ?? "",
+                groupId: data["groupId"] as? String ?? "",
+                assignedById: data["assignedById"] as? String ?? "",
+                assignedToId: data["assignedToId"] as? String ?? "",
+                taskId: data["taskId"] as? String ?? "",
+                goalId: data["goalId"] as? String,
+                dueDate: (data["dueDate"] as? Timestamp)?.dateValue() ?? Date(),
+                priority: TaskPriority(rawValue: data["priority"] as? String ?? "") ?? .medium,
+                status: AssignmentStatus(rawValue: data["status"] as? String ?? "") ?? .pending,
+                createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
+                completedAt: (data["completedAt"] as? Timestamp)?.dateValue(),
+                notes: data["notes"] as? String
+            )
+        }
+        
+        groupTaskAssignments = assignments
     }
 }

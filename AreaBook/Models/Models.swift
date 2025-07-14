@@ -287,6 +287,7 @@ struct AccountabilityGroup: Identifiable, Codable {
 }
 
 enum GroupType: String, Codable, CaseIterable {
+    case zone = "zone"
     case district = "district"
     case companionship = "companionship"
 }
@@ -321,6 +322,9 @@ struct GroupPermissions: Codable {
     var canViewKIs: Bool
     var canSendEncouragements: Bool
     var canManageMembers: Bool
+    var canViewFullSync: Bool
+    var canAssignTasks: Bool
+    var canCreateComments: Bool
     
     init(role: GroupRole) {
         switch role {
@@ -331,6 +335,9 @@ struct GroupPermissions: Codable {
             self.canViewKIs = true
             self.canSendEncouragements = true
             self.canManageMembers = true
+            self.canViewFullSync = true
+            self.canAssignTasks = true
+            self.canCreateComments = true
         case .leader:
             self.canViewGoals = true
             self.canViewEvents = true
@@ -338,6 +345,9 @@ struct GroupPermissions: Codable {
             self.canViewKIs = true
             self.canSendEncouragements = true
             self.canManageMembers = false
+            self.canViewFullSync = true
+            self.canAssignTasks = true
+            self.canCreateComments = true
         case .member:
             self.canViewGoals = true
             self.canViewEvents = true
@@ -345,6 +355,9 @@ struct GroupPermissions: Codable {
             self.canViewKIs = true
             self.canSendEncouragements = true
             self.canManageMembers = false
+            self.canViewFullSync = false
+            self.canAssignTasks = false
+            self.canCreateComments = true
         case .viewer:
             self.canViewGoals = true
             self.canViewEvents = true
@@ -352,6 +365,9 @@ struct GroupPermissions: Codable {
             self.canViewKIs = true
             self.canSendEncouragements = false
             self.canManageMembers = false
+            self.canViewFullSync = false
+            self.canAssignTasks = false
+            self.canCreateComments = false
         }
     }
 }
@@ -402,4 +418,140 @@ struct DailyQuote: Codable {
         DailyQuote(text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill", source: nil),
         DailyQuote(text: "Be patient with yourself. Self-growth is tender; it's holy ground.", author: "Stephen Covey", source: nil)
     ]
+}
+
+// MARK: - Group Comments and Feedback
+struct GroupComment: Identifiable, Codable {
+    let id: String
+    var groupId: String
+    var authorId: String
+    var targetType: CommentTargetType
+    var targetId: String
+    var content: String
+    var createdAt: Date
+    var updatedAt: Date
+    var parentCommentId: String? // For threaded comments
+    var reactions: [CommentReaction]
+    
+    init(groupId: String, authorId: String, targetType: CommentTargetType, targetId: String, content: String, parentCommentId: String? = nil) {
+        self.id = UUID().uuidString
+        self.groupId = groupId
+        self.authorId = authorId
+        self.targetType = targetType
+        self.targetId = targetId
+        self.content = content
+        self.createdAt = Date()
+        self.updatedAt = Date()
+        self.parentCommentId = parentCommentId
+        self.reactions = []
+    }
+}
+
+enum CommentTargetType: String, Codable, CaseIterable {
+    case goal = "goal"
+    case event = "event"
+    case task = "task"
+    case keyIndicator = "keyIndicator"
+}
+
+struct CommentReaction: Identifiable, Codable {
+    let id: String
+    var userId: String
+    var type: ReactionType
+    var createdAt: Date
+    
+    init(userId: String, type: ReactionType) {
+        self.id = UUID().uuidString
+        self.userId = userId
+        self.type = type
+        self.createdAt = Date()
+    }
+}
+
+enum ReactionType: String, Codable, CaseIterable {
+    case thumbsUp = "thumbsUp"
+    case heart = "heart"
+    case celebrate = "celebrate"
+    case pray = "pray"
+    case support = "support"
+}
+
+// MARK: - Full Sync Models
+struct FullSyncShare: Identifiable, Codable {
+    let id: String
+    var ownerId: String
+    var groupId: String
+    var sharedWithUserId: String
+    var permissions: SyncPermissions
+    var createdAt: Date
+    var expiresAt: Date?
+    var isActive: Bool
+    
+    init(ownerId: String, groupId: String, sharedWithUserId: String, permissions: SyncPermissions, expiresAt: Date? = nil) {
+        self.id = UUID().uuidString
+        self.ownerId = ownerId
+        self.groupId = groupId
+        self.sharedWithUserId = sharedWithUserId
+        self.permissions = permissions
+        self.createdAt = Date()
+        self.expiresAt = expiresAt
+        self.isActive = true
+    }
+}
+
+struct SyncPermissions: Codable {
+    var canViewGoals: Bool
+    var canViewEvents: Bool
+    var canViewTasks: Bool
+    var canViewNotes: Bool
+    var canViewKIs: Bool
+    var canViewDashboard: Bool
+    
+    init(canViewGoals: Bool = true, canViewEvents: Bool = true, canViewTasks: Bool = true, canViewNotes: Bool = true, canViewKIs: Bool = true, canViewDashboard: Bool = true) {
+        self.canViewGoals = canViewGoals
+        self.canViewEvents = canViewEvents
+        self.canViewTasks = canViewTasks
+        self.canViewNotes = canViewNotes
+        self.canViewKIs = canViewKIs
+        self.canViewDashboard = canViewDashboard
+    }
+}
+
+// MARK: - Group Task Assignment
+struct GroupTaskAssignment: Identifiable, Codable {
+    let id: String
+    var groupId: String
+    var assignedById: String
+    var assignedToId: String
+    var taskId: String
+    var goalId: String?
+    var dueDate: Date
+    var priority: TaskPriority
+    var status: AssignmentStatus
+    var createdAt: Date
+    var completedAt: Date?
+    var notes: String?
+    
+    init(groupId: String, assignedById: String, assignedToId: String, taskId: String, goalId: String? = nil, dueDate: Date, priority: TaskPriority = .medium, notes: String? = nil) {
+        self.id = UUID().uuidString
+        self.groupId = groupId
+        self.assignedById = assignedById
+        self.assignedToId = assignedToId
+        self.taskId = taskId
+        self.goalId = goalId
+        self.dueDate = dueDate
+        self.priority = priority
+        self.status = .pending
+        self.createdAt = Date()
+        self.completedAt = nil
+        self.notes = notes
+    }
+}
+
+enum AssignmentStatus: String, Codable, CaseIterable {
+    case pending = "pending"
+    case accepted = "accepted"
+    case inProgress = "inProgress"
+    case completed = "completed"
+    case declined = "declined"
 }

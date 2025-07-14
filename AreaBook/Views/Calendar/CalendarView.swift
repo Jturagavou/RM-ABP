@@ -1,50 +1,111 @@
 import SwiftUI
 
+enum CalendarViewType: String, CaseIterable {
+    case month = "Month"
+    case day = "Day"
+    case week = "Week"
+}
+
 struct CalendarView: View {
     @EnvironmentObject var dataManager: DataManager
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var selectedDate = Date()
+    @State private var selectedView: CalendarViewType = .month
+    @State private var showingEventCreation = false
     
     var body: some View {
         NavigationView {
-            VStack {
-                // Calendar Widget
-                DatePicker("Select Date", selection: $selectedDate, displayedComponents: [.date])
-                    .datePickerStyle(GraphicalDatePickerStyle())
-                    .padding()
+            VStack(spacing: 0) {
+                // View Switcher
+                viewSwitcher
                 
-                // Events for selected date
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        let eventsForDate = eventsForSelectedDate
-                        
-                        if eventsForDate.isEmpty {
-                            VStack(spacing: 20) {
-                                Image(systemName: "calendar")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.gray)
-                                
-                                Text("No Events")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                
-                                Text("No events scheduled for \(selectedDate, style: .date)")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.top, 50)
-                        } else {
-                            ForEach(eventsForDate) { event in
-                                EventCard(event: event)
-                            }
-                        }
+                // Calendar Content
+                Group {
+                    switch selectedView {
+                    case .month:
+                        monthView
+                    case .day:
+                        DayView()
+                    case .week:
+                        WeekView()
                     }
-                    .padding()
                 }
             }
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        showingEventCreation = true
+                    }) {
+                        Image(systemName: "plus")
+                            .font(.title2)
+                    }
+                }
+            }
+            .sheet(isPresented: $showingEventCreation) {
+                CreateEventView()
+            }
+        }
+    }
+    
+    private var viewSwitcher: some View {
+        HStack {
+            Picker("View", selection: $selectedView) {
+                ForEach(CalendarViewType.allCases, id: \.self) { viewType in
+                    Text(viewType.rawValue).tag(viewType)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .padding()
+            
+            Spacer()
+        }
+        .background(Color(.systemBackground))
+        .overlay(
+            Rectangle()
+                .fill(Color(.systemGray5))
+                .frame(height: 1),
+            alignment: .bottom
+        )
+    }
+    
+    private var monthView: some View {
+        VStack {
+            // Calendar Widget
+            DatePicker("Select Date", selection: $selectedDate, displayedComponents: [.date])
+                .datePickerStyle(GraphicalDatePickerStyle())
+                .padding()
+            
+            // Events for selected date
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    let eventsForDate = eventsForSelectedDate
+                    
+                    if eventsForDate.isEmpty {
+                        VStack(spacing: 20) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 60))
+                                .foregroundColor(.gray)
+                            
+                            Text("No Events")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                            
+                            Text("No events scheduled for \(selectedDate, style: .date)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.top, 50)
+                    } else {
+                        ForEach(eventsForDate) { event in
+                            EventCard(event: event)
+                        }
+                    }
+                }
+                .padding()
+            }
         }
     }
     

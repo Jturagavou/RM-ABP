@@ -22,12 +22,14 @@ struct CreateEventView: View {
     @State private var showingTaskCreation = false
     
     let eventToEdit: CalendarEvent?
+    let prefilledDate: Date?
     
     private let categories = ["Personal", "Church", "School", "Work", "Family", "Health", "Other"]
     private let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     
-    init(eventToEdit: CalendarEvent? = nil) {
+    init(eventToEdit: CalendarEvent? = nil, prefilledDate: Date? = nil) {
         self.eventToEdit = eventToEdit
+        self.prefilledDate = prefilledDate
     }
     
     var body: some View {
@@ -217,26 +219,31 @@ struct CreateEventView: View {
     }
     
     private func loadEventData() {
-        guard let event = eventToEdit else { return }
-        
-        title = event.title
-        description = event.description
-        category = event.category
-        startDate = event.startTime
-        endDate = event.endTime
-        selectedGoalId = event.linkedGoalId
-        isRecurring = event.isRecurring
-        
-        if let pattern = event.recurrencePattern {
-            recurrenceType = pattern.type
-            recurrenceInterval = pattern.interval
-            selectedDaysOfWeek = Set(pattern.daysOfWeek ?? [])
-            recurrenceEndDate = pattern.endDate
-            hasRecurrenceEndDate = pattern.endDate != nil
+        if let event = eventToEdit {
+            // Load existing event data
+            title = event.title
+            description = event.description
+            category = event.category
+            startDate = event.startTime
+            endDate = event.endTime
+            selectedGoalId = event.linkedGoalId
+            isRecurring = event.isRecurring
+            
+            if let pattern = event.recurrencePattern {
+                recurrenceType = pattern.type
+                recurrenceInterval = pattern.interval
+                selectedDaysOfWeek = Set(pattern.daysOfWeek ?? [])
+                recurrenceEndDate = pattern.endDate
+                hasRecurrenceEndDate = pattern.endDate != nil
+            }
+            
+            // Load linked tasks
+            linkedTasks = dataManager.getTasksForEvent(event.id)
+        } else if let prefilled = prefilledDate {
+            // Use prefilled date for new event
+            startDate = prefilled
+            endDate = Calendar.current.date(byAdding: .hour, value: 1, to: prefilled) ?? prefilled
         }
-        
-        // Load linked tasks
-        linkedTasks = dataManager.getTasksForEvent(event.id)
     }
     
     private func saveEvent() {

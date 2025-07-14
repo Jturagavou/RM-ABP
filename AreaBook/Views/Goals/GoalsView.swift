@@ -59,13 +59,19 @@ struct GoalCard: View {
                 
                 Spacer()
                 
-                Text("\(goal.progress)%")
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(.blue)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(goal.calculatedProgress)%")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                    
+                    Text("\(goal.currentValue)/\(goal.targetValue) \(goal.progressUnit)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
-            ProgressView(value: Double(goal.progress) / 100.0)
+            ProgressView(value: Double(goal.calculatedProgress) / 100.0)
                 .progressViewStyle(LinearProgressViewStyle(tint: .blue))
             
             HStack {

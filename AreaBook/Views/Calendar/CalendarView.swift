@@ -36,7 +36,9 @@ struct CalendarView: View {
                             .padding(.top, 50)
                         } else {
                             ForEach(eventsForDate) { event in
-                                EventCard(event: event)
+                                EventCard(event: event) {
+                                    toggleEventCompletion(event)
+                                }
                             }
                         }
                     }
@@ -54,10 +56,25 @@ struct CalendarView: View {
         }
         .sorted { $0.startTime < $1.startTime }
     }
+    
+    private func toggleEventCompletion(_ event: CalendarEvent) {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        
+        if event.status == .completed {
+            // Mark as scheduled
+            var updatedEvent = event
+            updatedEvent.status = .scheduled
+            dataManager.updateEvent(updatedEvent, userId: userId)
+        } else {
+            // Mark as completed and update linked goal progress
+            dataManager.completeEvent(event, userId: userId)
+        }
+    }
 }
 
 struct EventCard: View {
     let event: CalendarEvent
+    let onToggle: () -> Void
     
     var body: some View {
         HStack(spacing: 12) {
@@ -83,6 +100,8 @@ struct EventCard: View {
                 Text(event.title)
                     .font(.headline)
                     .fontWeight(.semibold)
+                    .strikethrough(event.status == .completed)
+                    .foregroundColor(event.status == .completed ? .secondary : .primary)
                 
                 if !event.description.isEmpty {
                     Text(event.description)
@@ -91,16 +110,31 @@ struct EventCard: View {
                         .lineLimit(2)
                 }
                 
-                Text(event.category)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.blue.opacity(0.2))
-                    .foregroundColor(.blue)
-                    .cornerRadius(6)
+                HStack {
+                    Text(event.category)
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.2))
+                        .foregroundColor(.blue)
+                        .cornerRadius(6)
+                    
+                    if event.status == .completed {
+                        Text("✓ Completed")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                            .fontWeight(.medium)
+                    }
+                }
             }
             
             Spacer()
+            
+            Button(action: onToggle) {
+                Image(systemName: event.status == .completed ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(event.status == .completed ? .green : .gray)
+                    .font(.title2)
+            }
         }
         .padding()
         .background(Color(.systemBackground))

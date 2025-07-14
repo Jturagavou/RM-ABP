@@ -138,6 +138,31 @@ class DataManager: ObservableObject {
             }
     }
     
+    func updateGoalProgress(goalId: String, increment: Int, userId: String) {
+        guard let goalIndex = goals.firstIndex(where: { $0.id == goalId }) else {
+            showError("Goal not found")
+            return
+        }
+        
+        var updatedGoal = goals[goalIndex]
+        updatedGoal.currentValue += increment
+        
+        // Ensure currentValue doesn't exceed targetValue
+        if updatedGoal.currentValue > updatedGoal.targetValue {
+            updatedGoal.currentValue = updatedGoal.targetValue
+        }
+        
+        // Update progress percentage
+        updatedGoal.progress = updatedGoal.calculatedProgress
+        
+        // Mark as completed if target is reached
+        if updatedGoal.currentValue >= updatedGoal.targetValue {
+            updatedGoal.status = .completed
+        }
+        
+        updateGoal(updatedGoal, userId: userId)
+    }
+    
     // MARK: - Calendar Events
     private func setupEventsListener(userId: String) {
         let listener = db.collection("users").document(userId).collection("events")
@@ -186,6 +211,20 @@ class DataManager: ObservableObject {
             }
     }
     
+    func completeEvent(_ event: CalendarEvent, userId: String) {
+        var completedEvent = event
+        completedEvent.status = .completed
+        completedEvent.updatedAt = Date()
+        
+        // Update the event status first
+        updateEvent(completedEvent, userId: userId)
+        
+        // Update linked goal progress if exists
+        if let linkedGoalId = event.linkedGoalId {
+            updateGoalProgress(goalId: linkedGoalId, increment: 1, userId: userId)
+        }
+    }
+    
     // MARK: - Tasks
     private func setupTasksListener(userId: String) {
         let listener = db.collection("users").document(userId).collection("tasks")
@@ -225,6 +264,21 @@ class DataManager: ObservableObject {
                 .document(task.id).setData(from: updatedTask)
         } catch {
             showError("Failed to update task: \(error.localizedDescription)")
+        }
+    }
+    
+    func completeTask(_ task: Task, userId: String) {
+        var completedTask = task
+        completedTask.status = .completed
+        completedTask.completedAt = Date()
+        completedTask.updatedAt = Date()
+        
+        // Update the task status first
+        updateTask(completedTask, userId: userId)
+        
+        // Update linked goal progress if exists
+        if let linkedGoalId = task.linkedGoalId {
+            updateGoalProgress(goalId: linkedGoalId, increment: 1, userId: userId)
         }
     }
     

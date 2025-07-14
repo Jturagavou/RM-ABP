@@ -67,7 +67,7 @@ struct KeyIndicator: Identifiable, Codable {
 
 // MARK: - Goal Models
 struct Goal: Identifiable, Codable {
-    let id: String
+    var id: String
     var title: String
     var description: String
     var keyIndicatorIds: [String]
@@ -79,7 +79,17 @@ struct Goal: Identifiable, Codable {
     var linkedNoteIds: [String]
     var stickyNotes: [StickyNote]
     
-    init(title: String, description: String, keyIndicatorIds: [String] = [], targetDate: Date? = nil) {
+    // Progress tracking fields
+    var targetValue: Int // Total number of events/tasks needed to complete this goal
+    var currentValue: Int // Current number of completed events/tasks
+    var progressUnit: String // e.g., "events", "tasks", "sessions"
+    
+    var calculatedProgress: Int {
+        guard targetValue > 0 else { return 0 }
+        return min(Int((Double(currentValue) / Double(targetValue)) * 100), 100)
+    }
+    
+    init(title: String, description: String, keyIndicatorIds: [String] = [], targetDate: Date? = nil, targetValue: Int = 1, progressUnit: String = "events") {
         self.id = UUID().uuidString
         self.title = title
         self.description = description
@@ -91,6 +101,9 @@ struct Goal: Identifiable, Codable {
         self.updatedAt = Date()
         self.linkedNoteIds = []
         self.stickyNotes = []
+        self.targetValue = targetValue
+        self.currentValue = 0
+        self.progressUnit = progressUnit
     }
 }
 

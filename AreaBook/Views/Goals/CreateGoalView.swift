@@ -15,6 +15,10 @@ struct CreateGoalView: View {
     @State private var selectedStickyColor = "#FBBF24"
     @State private var newStickyText = ""
     
+    // Progress tracking fields
+    @State private var targetValue: Int = 1
+    @State private var progressUnit: String = "events"
+    
     let goalToEdit: Goal?
     
     init(goalToEdit: Goal? = nil) {
@@ -62,6 +66,45 @@ struct CreateGoalView: View {
                             ), displayedComponents: [.date])
                             .datePickerStyle(WheelDatePickerStyle())
                         }
+                    }
+                    
+                    // Progress Tracking Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Progress Tracking")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        VStack(spacing: 12) {
+                            HStack {
+                                Text("Target Value:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Stepper("\(targetValue)", value: $targetValue, in: 1...999)
+                                    .labelsHidden()
+                            }
+                            
+                            HStack {
+                                Text("Progress Unit:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Menu {
+                                    Button("events") { progressUnit = "events" }
+                                    Button("tasks") { progressUnit = "tasks" }
+                                    Button("sessions") { progressUnit = "sessions" }
+                                    Button("activities") { progressUnit = "activities" }
+                                    Button("milestones") { progressUnit = "milestones" }
+                                } label: {
+                                    HStack {
+                                        Text(progressUnit)
+                                        Image(systemName: "chevron.down")
+                                    }
+                                    .foregroundColor(.blue)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
                     }
                     
                     // Key Indicators Section
@@ -160,32 +203,39 @@ struct CreateGoalView: View {
         targetDate = goal.targetDate
         hasTargetDate = goal.targetDate != nil
         stickyNotes = goal.stickyNotes
+        targetValue = goal.targetValue
+        progressUnit = goal.progressUnit
     }
     
     private func saveGoal() {
         guard let userId = authViewModel.currentUser?.id else { return }
         
-        let goal: Goal
+        var goal: Goal
         if let existingGoal = goalToEdit {
             goal = Goal(
-                id: existingGoal.id,
                 title: title,
                 description: description,
                 keyIndicatorIds: Array(selectedKIIds),
-                progress: existingGoal.progress,
-                status: existingGoal.status,
                 targetDate: hasTargetDate ? targetDate : nil,
-                createdAt: existingGoal.createdAt,
-                updatedAt: Date(),
-                linkedNoteIds: existingGoal.linkedNoteIds,
-                stickyNotes: stickyNotes
+                targetValue: targetValue,
+                progressUnit: progressUnit
             )
+            goal.id = existingGoal.id
+            goal.progress = existingGoal.progress
+            goal.status = existingGoal.status
+            goal.currentValue = existingGoal.currentValue
+            goal.createdAt = existingGoal.createdAt
+            goal.updatedAt = Date()
+            goal.linkedNoteIds = existingGoal.linkedNoteIds
+            goal.stickyNotes = stickyNotes
         } else {
             goal = Goal(
                 title: title,
                 description: description,
                 keyIndicatorIds: Array(selectedKIIds),
-                targetDate: hasTargetDate ? targetDate : nil
+                targetDate: hasTargetDate ? targetDate : nil,
+                targetValue: targetValue,
+                progressUnit: progressUnit
             )
             goal.stickyNotes = stickyNotes
         }

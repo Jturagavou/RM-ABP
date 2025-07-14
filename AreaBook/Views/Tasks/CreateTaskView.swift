@@ -1,4 +1,7 @@
+import Foundation
 import SwiftUI
+import Firebase
+import FirebaseFirestore
 
 struct CreateTaskView: View {
     @Environment(\.dismiss) private var dismiss

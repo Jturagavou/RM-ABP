@@ -1,4 +1,6 @@
 import SwiftUI
+import Firebase
+import FirebaseFirestore
 
 struct NotesView: View {
     @EnvironmentObject var dataManager: DataManager

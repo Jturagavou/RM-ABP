@@ -1,7 +1,11 @@
 import Foundation
+import SwiftUI
 import Firebase
 import FirebaseAuth
+import FirebaseFirestore
 import Combine
+
+typealias FirebaseUser = FirebaseAuth.User
 
 class AuthViewModel: ObservableObject {
     @Published var currentUser: User?

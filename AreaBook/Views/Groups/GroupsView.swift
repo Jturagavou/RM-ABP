@@ -1,4 +1,7 @@
+import Foundation
 import SwiftUI
+import Firebase
+import FirebaseFirestore
 
 struct GroupsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel

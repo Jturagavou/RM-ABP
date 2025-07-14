@@ -1,4 +1,6 @@
 import SwiftUI
+import Firebase
+import FirebaseFirestore
 
 struct AuthenticationView: View {
     @State private var isLoginMode = true

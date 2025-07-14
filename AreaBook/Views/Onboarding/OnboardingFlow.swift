@@ -1,4 +1,8 @@
+import Foundation
 import SwiftUI
+import Combine
+import Firebase
+import FirebaseFirestore
 
 struct OnboardingFlow: View {
     @StateObject private var onboardingViewModel = OnboardingViewModel()

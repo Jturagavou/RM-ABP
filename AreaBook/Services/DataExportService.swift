@@ -1,5 +1,7 @@
 import Foundation
 import SwiftUI
+import Firebase
+import FirebaseFirestore
 
 // MARK: - Data Export Service
 class DataExportService: ObservableObject {

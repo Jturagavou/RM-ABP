@@ -54,6 +54,16 @@ class FirebaseService {
             return
         }
         
+        // Check if we have a valid GoogleService-Info.plist
+        guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+              let plist = NSDictionary(contentsOfFile: path),
+              let apiKey = plist["API_KEY"] as? String,
+              !apiKey.contains("YOUR_") else {
+            print("⚠️ Firebase configuration skipped: GoogleService-Info.plist contains placeholder values")
+            print("📝 To enable Firebase, replace placeholder values in GoogleService-Info.plist with real Firebase project values")
+            return
+        }
+        
         FirebaseApp.configure()
         print("Firebase configured successfully")
     }

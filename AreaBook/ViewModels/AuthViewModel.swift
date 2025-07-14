@@ -17,6 +17,26 @@ class AuthViewModel: ObservableObject {
     }
     
     private func setupAuthStateListener() {
+        // Check if Firebase is configured before setting up auth listener
+        guard FirebaseApp.app() != nil else {
+            print("⚠️ Firebase not configured, using mock authentication")
+            // For testing without Firebase, set a mock authenticated state
+            DispatchQueue.main.async {
+                self.isAuthenticated = true
+                self.currentUser = User(
+                    id: "mock-user-id",
+                    email: "test@example.com",
+                    name: "Test User",
+                    avatar: nil,
+                    createdAt: Date(),
+                    lastSeen: Date(),
+                    settings: UserSettings()
+                )
+                self.isLoading = false
+            }
+            return
+        }
+        
         Auth.auth().addStateDidChangeListener { [weak self] _, user in
             DispatchQueue.main.async {
                 if let user = user {

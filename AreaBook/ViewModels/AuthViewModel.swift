@@ -1,6 +1,7 @@
 import Foundation
 import Firebase
 import FirebaseAuth
+import FirebaseFirestore
 import Combine
 
 class AuthViewModel: ObservableObject {
@@ -13,54 +14,75 @@ class AuthViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init() {
+        print("🔐 AuthViewModel: Initializing...")
         setupAuthStateListener()
+        print("🔐 AuthViewModel: Initialization complete")
     }
     
     private func setupAuthStateListener() {
+        print("🔐 AuthViewModel: Setting up auth state listener...")
         Auth.auth().addStateDidChangeListener { [weak self] _, user in
             DispatchQueue.main.async {
                 if let user = user {
+                    print("🔐 AuthViewModel: Auth state changed - User: \(user.uid)")
+                    print("🔐 AuthViewModel: User email: \(user.email ?? "nil")")
+                    print("🔐 AuthViewModel: User display name: \(user.displayName ?? "nil")")
+                    print("🔐 AuthViewModel: User is authenticated, loading user data...")
                     self?.loadUserData(for: user)
                 } else {
+                    print("🔐 AuthViewModel: Auth state changed - No user")
                     self?.currentUser = nil
                     self?.isAuthenticated = false
                 }
                 self?.isLoading = false
             }
         }
+        print("🔐 AuthViewModel: Auth state listener setup complete")
     }
     
     private func loadUserData(for firebaseUser: FirebaseUser) {
+        print("🔐 AuthViewModel: User UID: \(firebaseUser.uid)")
         isLoading = true
         
         let db = Firestore.firestore()
+        let userDocPath = "users/\(firebaseUser.uid)"
+        print("🔐 AuthViewModel: Accessing Firestore at path: \(userDocPath)")
+        
         db.collection("users").document(firebaseUser.uid).getDocument { [weak self] document, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
                 
                 if let error = error {
+                    print("❌ AuthViewModel: Firestore error: \(error.localizedDescription)")
                     self?.showError(error.localizedDescription)
                     return
                 }
                 
                 guard let document = document, document.exists,
                       let data = document.data() else {
+                    print("🔐 AuthViewModel: User document doesn't exist, creating new one...")
                     // Create new user document if it doesn't exist
                     self?.createUserDocument(for: firebaseUser)
                     return
                 }
                 
+                print("✅ AuthViewModel: User document exists for user: \(firebaseUser.uid)")
+                
                 do {
-                    let userData = try JSONSerialization.data(withJSONObject: data)
-                    var user = try JSONDecoder().decode(User.self, from: userData)
-                    user.lastSeen = Date()
+                    // Handle Firestore data conversion
+                    let user = try self?.parseUserFromFirestore(data: data, uid: firebaseUser.uid)
                     
                     self?.currentUser = user
                     self?.isAuthenticated = true
                     
+                    print("✅ AuthViewModel: User authenticated successfully")
+                    print("✅ AuthViewModel: User name: '\(user?.name ?? "nil")', email: '\(user?.email ?? "nil")'")
+                    
                     // Update last seen
                     self?.updateLastSeen()
                 } catch {
+                    print("❌ AuthViewModel: Failed to parse user data: \(error.localizedDescription)")
+                    print("❌ AuthViewModel: Raw data: \(data)")
                     self?.showError("Failed to decode user data: \(error.localizedDescription)")
                 }
             }
@@ -193,6 +215,88 @@ class AuthViewModel: ObservableObject {
                 }
             }
         }
+    }
+    
+    private func parseUserFromFirestore(data: [String: Any], uid: String) throws -> User {
+        print("🔐 AuthViewModel: Parsing user data from Firestore...")
+        
+        // Extract basic fields with safe defaults
+        let email = data["email"] as? String ?? ""
+        let name = data["name"] as? String ?? ""
+        let avatar = data["avatar"] as? String
+        
+        // Handle Firestore Timestamp for createdAt
+        let createdAt: Date
+        if let timestamp = data["createdAt"] as? Timestamp {
+            createdAt = timestamp.dateValue()
+        } else if let timeInterval = data["createdAt"] as? TimeInterval {
+            createdAt = Date(timeIntervalSince1970: timeInterval)
+        } else {
+            createdAt = Date()
+        }
+        
+        // Handle Firestore Timestamp for lastSeen
+        let lastSeen: Date
+        if let timestamp = data["lastSeen"] as? Timestamp {
+            lastSeen = timestamp.dateValue()
+        } else if let timeInterval = data["lastSeen"] as? TimeInterval {
+            lastSeen = Date(timeIntervalSince1970: timeInterval)
+        } else {
+            lastSeen = Date()
+        }
+        
+        // Parse settings
+        let settings: UserSettings
+        if let settingsData = data["settings"] as? [String: Any] {
+            settings = parseUserSettings(from: settingsData)
+        } else {
+            settings = UserSettings()
+        }
+        
+        print("✅ AuthViewModel: User data parsed successfully")
+        print("✅ AuthViewModel: User name: '\(name)', email: '\(email)'")
+        
+        return User(
+            id: uid,
+            email: email,
+            name: name,
+            avatar: avatar,
+            createdAt: createdAt,
+            lastSeen: lastSeen,
+            settings: settings
+        )
+    }
+    
+    private func parseUserSettings(from data: [String: Any]) -> UserSettings {
+        var settings = UserSettings()
+        
+        if let defaultCalendarView = data["defaultCalendarView"] as? String,
+           let calendarViewType = CalendarViewType(rawValue: defaultCalendarView) {
+            settings.defaultCalendarView = calendarViewType
+        }
+        
+        if let defaultTaskView = data["defaultTaskView"] as? String,
+           let taskViewType = TaskViewType(rawValue: defaultTaskView) {
+            settings.defaultTaskView = taskViewType
+        }
+        
+        if let eventColorScheme = data["eventColorScheme"] as? [String: String] {
+            settings.eventColorScheme = eventColorScheme
+        }
+        
+        if let notificationsEnabled = data["notificationsEnabled"] as? Bool {
+            settings.notificationsEnabled = notificationsEnabled
+        }
+        
+        if let pushNotifications = data["pushNotifications"] as? Bool {
+            settings.pushNotifications = pushNotifications
+        }
+        
+        if let dailyKIReviewTime = data["dailyKIReviewTime"] as? String {
+            settings.dailyKIReviewTime = dailyKIReviewTime
+        }
+        
+        return settings
     }
     
     private func updateLastSeen() {

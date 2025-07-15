@@ -7,18 +7,33 @@ struct ContentView: View {
     var body: some View {
         Group {
             if authViewModel.isAuthenticated {
+                print("🔐 ContentView: User is authenticated, showing MainTabView")
+                print("🔐 ContentView: Current user: \(authViewModel.currentUser?.name ?? "nil")")
                 MainTabView()
                     .onAppear {
+                        print("🔐 ContentView: MainTabView appeared")
                         if let userId = authViewModel.currentUser?.id {
+                            print("🔐 ContentView: Setting up DataManager listeners for user: \(userId)")
                             dataManager.setupListeners(for: userId)
                         }
                     }
                     .onDisappear {
+                        print("🔐 ContentView: MainTabView disappeared, removing listeners")
                         dataManager.removeListeners()
                     }
             } else {
+                print("🔐 ContentView: User is NOT authenticated, showing AuthenticationView")
+                print("🔐 ContentView: isAuthenticated: \(authViewModel.isAuthenticated)")
+                print("🔐 ContentView: currentUser: \(authViewModel.currentUser?.name ?? "nil")")
                 AuthenticationView()
+                    .onAppear {
+                        print("🔐 AuthenticationView: View appeared")
+                        print("🔐 AuthenticationView: Current auth state - isAuthenticated: \(authViewModel.isAuthenticated)")
+                    }
             }
+        }
+        .onAppear {
+            print("🔐 ContentView: View appeared - isAuthenticated: \(authViewModel.isAuthenticated)")
         }
         .overlay(
             // Error message overlay

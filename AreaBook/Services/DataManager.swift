@@ -192,6 +192,13 @@ class DataManager: ObservableObject {
             if oldEvent?.status != .completed && event.status == .completed {
                 if let goalId = event.linkedGoalId {
                     logEventCompletion(event: event, goalId: goalId, userId: userId)
+                    // Update goal progress by 3% for each completed event
+                    updateGoalProgress(goalId: goalId, progressIncrease: 3, userId: userId)
+                }
+                
+                // Update linked Key Indicators
+                for kiId in event.linkedKeyIndicatorIds {
+                    updateKeyIndicatorProgress(kiId: kiId, increment: 1, userId: userId)
                 }
             }
         } catch {
@@ -252,6 +259,13 @@ class DataManager: ObservableObject {
             if oldTask?.status != .completed && task.status == .completed {
                 if let goalId = task.linkedGoalId {
                     logTaskCompletion(task: task, goalId: goalId, userId: userId)
+                    // Update goal progress by 5% for each completed task
+                    updateGoalProgress(goalId: goalId, progressIncrease: 5, userId: userId)
+                }
+                
+                // Update linked Key Indicators
+                for kiId in task.linkedKeyIndicatorIds {
+                    updateKeyIndicatorProgress(kiId: kiId, increment: 1, userId: userId)
                 }
             }
         } catch {

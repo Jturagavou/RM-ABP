@@ -2,6 +2,7 @@ import Foundation
 import Firebase
 import FirebaseFirestore
 import Combine
+import WidgetKit
 
 class DataManager: ObservableObject {
     static let shared = DataManager()
@@ -23,7 +24,13 @@ class DataManager: ObservableObject {
     private var listeners: [ListenerRegistration] = []
     private var cancellables = Set<AnyCancellable>()
     
-    private init() {}
+    // Shared UserDefaults for widget data
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.areabook.app")
+    
+    private init() {
+        // Set up publishers to update widget data when data changes
+        setupWidgetDataUpdates()
+    }
     
     func setupListeners(for userId: String) {
         removeListeners()
@@ -37,6 +44,9 @@ class DataManager: ObservableObject {
         setupGroupsListener(userId: userId)
         setupEncouragementListener(userId: userId)
         setupGoalDividersListener(userId: userId)
+        
+        // Update widget data with current data
+        updateAllWidgetData()
     }
     
     func removeListeners() {
@@ -590,6 +600,80 @@ class DataManager: ObservableObject {
     
     func getNotesForGoal(_ goalId: String) -> [Note] {
         return notes.filter { $0.linkedGoalIds.contains(goalId) }
+    }
+    
+    // MARK: - Widget Data Updates
+    private func setupWidgetDataUpdates() {
+        // Update widget data whenever key indicators change
+        $keyIndicators
+            .sink { [weak self] keyIndicators in
+                self?.updateWidgetData(keyIndicators: keyIndicators)
+            }
+            .store(in: &cancellables)
+        
+        // Update widget data whenever tasks change
+        $tasks
+            .sink { [weak self] tasks in
+                self?.updateWidgetData(tasks: tasks)
+            }
+            .store(in: &cancellables)
+        
+        // Update widget data whenever events change
+        $events
+            .sink { [weak self] events in
+                self?.updateWidgetData(events: events)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func updateWidgetData(keyIndicators: [KeyIndicator]? = nil, tasks: [Task]? = nil, events: [CalendarEvent]? = nil) {
+        // Update Key Indicators data
+        if let keyIndicators = keyIndicators {
+            do {
+                let data = try JSONEncoder().encode(keyIndicators)
+                sharedDefaults?.set(data, forKey: "keyIndicators")
+            } catch {
+                print("Failed to encode keyIndicators for widget: \(error)")
+            }
+        }
+        
+        // Update today's tasks
+        if let tasks = tasks {
+            let today = Calendar.current.startOfDay(for: Date())
+            let todaysTasks = tasks.filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                return Calendar.current.isDate(dueDate, inSameDayAs: today)
+            }
+            
+            do {
+                let data = try JSONEncoder().encode(todaysTasks)
+                sharedDefaults?.set(data, forKey: "todaysTasks")
+            } catch {
+                print("Failed to encode todaysTasks for widget: \(error)")
+            }
+        }
+        
+        // Update today's events
+        if let events = events {
+            let today = Calendar.current.startOfDay(for: Date())
+            let todaysEvents = events.filter { event in
+                return Calendar.current.isDate(event.startTime, inSameDayAs: today)
+            }
+            
+            do {
+                let data = try JSONEncoder().encode(todaysEvents)
+                sharedDefaults?.set(data, forKey: "todaysEvents")
+            } catch {
+                print("Failed to encode todaysEvents for widget: \(error)")
+            }
+        }
+        
+        // Trigger widget reload
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+    
+    func updateAllWidgetData() {
+        updateWidgetData(keyIndicators: keyIndicators, tasks: tasks, events: events)
     }
     
     private func showError(_ message: String) {

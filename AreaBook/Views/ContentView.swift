@@ -65,6 +65,7 @@ struct MainTabView: View {
         case calendar = "Calendar"
         case tasks = "Tasks"
         case notes = "Notes"
+        case groups = "Groups"
         case settings = "Settings"
         
         var icon: String {
@@ -74,6 +75,7 @@ struct MainTabView: View {
             case .calendar: return "calendar"
             case .tasks: return "checkmark.square"
             case .notes: return "doc.text"
+            case .groups: return "person.3"
             case .settings: return "gear"
             }
         }
@@ -85,6 +87,7 @@ struct MainTabView: View {
             case .calendar: return "calendar"
             case .tasks: return "checkmark.square.fill"
             case .notes: return "doc.text.fill"
+            case .groups: return "person.3.fill"
             case .settings: return "gear"
             }
         }
@@ -126,6 +129,13 @@ struct MainTabView: View {
                     Text(Tab.notes.rawValue)
                 }
                 .tag(Tab.notes)
+            
+            GroupsView()
+                .tabItem {
+                    Image(systemName: selectedTab == .groups ? Tab.groups.selectedIcon : Tab.groups.icon)
+                    Text(Tab.groups.rawValue)
+                }
+                .tag(Tab.groups)
             
             SettingsView()
                 .tabItem {
@@ -186,6 +196,7 @@ struct CreateItemSheet: View {
         case goal = "Goal"
         case note = "Note"
         case keyIndicator = "Key Indicator"
+        case group = "Group"
         
         var icon: String {
             switch self {
@@ -194,6 +205,7 @@ struct CreateItemSheet: View {
             case .goal: return "flag"
             case .note: return "doc.text"
             case .keyIndicator: return "chart.bar"
+            case .group: return "person.3"
             }
         }
     }

@@ -12,6 +12,7 @@ struct CreateEventView: View {
     @State private var endDate = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
     @State private var isAllDay = false
     @State private var selectedGoalId: String?
+    @State private var selectedKeyIndicatorIds: Set<String> = []
     @State private var isRecurring = false
     @State private var recurrenceType: RecurrenceType = .weekly
     @State private var recurrenceInterval = 1
@@ -77,6 +78,30 @@ struct CreateEventView: View {
                             Text("None").tag(nil as String?)
                             ForEach(dataManager.goals.filter { $0.status == .active }) { goal in
                                 Text(goal.title).tag(goal.id as String?)
+                            }
+                        }
+                    }
+                }
+                
+                // Key Indicators Section
+                if !dataManager.keyIndicators.isEmpty {
+                    Section("Link to Key Indicators") {
+                        Text("Select Key Indicators that will be updated when this event is completed")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                            ForEach(dataManager.keyIndicators) { ki in
+                                KISelectionCard(
+                                    keyIndicator: ki,
+                                    isSelected: selectedKeyIndicatorIds.contains(ki.id)
+                                ) {
+                                    if selectedKeyIndicatorIds.contains(ki.id) {
+                                        selectedKeyIndicatorIds.remove(ki.id)
+                                    } else {
+                                        selectedKeyIndicatorIds.insert(ki.id)
+                                    }
+                                }
                             }
                         }
                     }
@@ -239,6 +264,7 @@ struct CreateEventView: View {
         startDate = event.startTime
         endDate = event.endTime
         selectedGoalId = event.linkedGoalId
+        selectedKeyIndicatorIds = Set(event.linkedKeyIndicatorIds)
         isRecurring = event.isRecurring
         
         if let pattern = event.recurrencePattern {
@@ -267,23 +293,24 @@ struct CreateEventView: View {
             )
         }
         
-        let event: CalendarEvent
+        var event: CalendarEvent
         if let existingEvent = eventToEdit {
             event = CalendarEvent(
-                id: existingEvent.id,
                 title: title,
                 description: description,
                 category: category,
                 startTime: startDate,
                 endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
                 linkedGoalId: selectedGoalId,
-                taskIds: linkedTasks.map { $0.id },
-                isRecurring: isRecurring,
-                recurrencePattern: recurrencePattern,
-                status: existingEvent.status,
-                createdAt: existingEvent.createdAt,
-                updatedAt: Date()
+                linkedKeyIndicatorIds: Array(selectedKeyIndicatorIds)
             )
+            event.id = existingEvent.id
+            event.taskIds = linkedTasks.map { $0.id }
+            event.isRecurring = isRecurring
+            event.recurrencePattern = recurrencePattern
+            event.status = existingEvent.status
+            event.createdAt = existingEvent.createdAt
+            event.updatedAt = Date()
         } else {
             event = CalendarEvent(
                 title: title,
@@ -291,7 +318,8 @@ struct CreateEventView: View {
                 category: category,
                 startTime: startDate,
                 endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
-                linkedGoalId: selectedGoalId
+                linkedGoalId: selectedGoalId,
+                linkedKeyIndicatorIds: Array(selectedKeyIndicatorIds)
             )
             event.taskIds = linkedTasks.map { $0.id }
             event.isRecurring = isRecurring

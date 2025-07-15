@@ -12,6 +12,7 @@ struct CreateTaskView: View {
     @State private var hasDueDate = false
     @State private var selectedGoalId: String?
     @State private var selectedEventId: String?
+    @State private var selectedKeyIndicatorIds: Set<String> = []
     @State private var subtasks: [Subtask] = []
     @State private var newSubtaskText = ""
     @State private var showingSubtaskSheet = false
@@ -141,6 +142,30 @@ struct CreateTaskView: View {
                     }
                 }
                 
+                // Key Indicators Section
+                if !dataManager.keyIndicators.isEmpty {
+                    Section("Link to Key Indicators") {
+                        Text("Select Key Indicators that will be updated when this task is completed")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                            ForEach(dataManager.keyIndicators) { ki in
+                                KISelectionCard(
+                                    keyIndicator: ki,
+                                    isSelected: selectedKeyIndicatorIds.contains(ki.id)
+                                ) {
+                                    if selectedKeyIndicatorIds.contains(ki.id) {
+                                        selectedKeyIndicatorIds.remove(ki.id)
+                                    } else {
+                                        selectedKeyIndicatorIds.insert(ki.id)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Subtasks Section
                 Section {
                     if subtasks.isEmpty {
@@ -240,6 +265,7 @@ struct CreateTaskView: View {
         hasDueDate = task.dueDate != nil
         selectedGoalId = task.linkedGoalId
         selectedEventId = task.linkedEventId
+        selectedKeyIndicatorIds = Set(task.linkedKeyIndicatorIds)
         subtasks = task.subtasks
         
         // Load duration estimation if available
@@ -256,19 +282,20 @@ struct CreateTaskView: View {
         let task: Task
         if let existingTask = taskToEdit {
             task = Task(
-                id: existingTask.id,
                 title: title,
                 description: description.isEmpty ? nil : description,
-                status: existingTask.status,
                 priority: priority,
                 dueDate: hasDueDate ? dueDate : nil,
                 linkedGoalId: selectedGoalId,
                 linkedEventId: selectedEventId,
-                subtasks: subtasks,
-                createdAt: existingTask.createdAt,
-                updatedAt: Date(),
-                completedAt: existingTask.completedAt
+                linkedKeyIndicatorIds: Array(selectedKeyIndicatorIds)
             )
+            task.id = existingTask.id
+            task.status = existingTask.status
+            task.subtasks = subtasks
+            task.createdAt = existingTask.createdAt
+            task.updatedAt = Date()
+            task.completedAt = existingTask.completedAt
         } else {
             task = Task(
                 title: title,
@@ -276,7 +303,8 @@ struct CreateTaskView: View {
                 priority: priority,
                 dueDate: hasDueDate ? dueDate : nil,
                 linkedGoalId: selectedGoalId,
-                linkedEventId: selectedEventId
+                linkedEventId: selectedEventId,
+                linkedKeyIndicatorIds: Array(selectedKeyIndicatorIds)
             )
             task.subtasks = subtasks
         }

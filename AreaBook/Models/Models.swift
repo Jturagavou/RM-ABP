@@ -205,6 +205,7 @@ struct CalendarEvent: Identifiable, Codable {
     var startTime: Date
     var endTime: Date
     var linkedGoalId: String?
+    var linkedKeyIndicatorIds: [String]
     var taskIds: [String]
     var isRecurring: Bool
     var recurrencePattern: RecurrencePattern?
@@ -212,7 +213,7 @@ struct CalendarEvent: Identifiable, Codable {
     var createdAt: Date
     var updatedAt: Date
     
-    init(title: String, description: String, category: String, startTime: Date, endTime: Date, linkedGoalId: String? = nil) {
+    init(title: String, description: String, category: String, startTime: Date, endTime: Date, linkedGoalId: String? = nil, linkedKeyIndicatorIds: [String] = []) {
         self.id = UUID().uuidString
         self.title = title
         self.description = description
@@ -220,6 +221,7 @@ struct CalendarEvent: Identifiable, Codable {
         self.startTime = startTime
         self.endTime = endTime
         self.linkedGoalId = linkedGoalId
+        self.linkedKeyIndicatorIds = linkedKeyIndicatorIds
         self.taskIds = []
         self.isRecurring = false
         self.recurrencePattern = nil
@@ -259,12 +261,13 @@ struct Task: Identifiable, Codable {
     var dueDate: Date?
     var linkedGoalId: String?
     var linkedEventId: String?
+    var linkedKeyIndicatorIds: [String]
     var subtasks: [Subtask]
     var createdAt: Date
     var updatedAt: Date
     var completedAt: Date?
     
-    init(title: String, description: String? = nil, priority: TaskPriority = .medium, dueDate: Date? = nil, linkedGoalId: String? = nil, linkedEventId: String? = nil) {
+    init(title: String, description: String? = nil, priority: TaskPriority = .medium, dueDate: Date? = nil, linkedGoalId: String? = nil, linkedEventId: String? = nil, linkedKeyIndicatorIds: [String] = []) {
         self.id = UUID().uuidString
         self.title = title
         self.description = description
@@ -273,6 +276,7 @@ struct Task: Identifiable, Codable {
         self.dueDate = dueDate
         self.linkedGoalId = linkedGoalId
         self.linkedEventId = linkedEventId
+        self.linkedKeyIndicatorIds = linkedKeyIndicatorIds
         self.subtasks = []
         self.createdAt = Date()
         self.updatedAt = Date()

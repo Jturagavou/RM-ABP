@@ -448,29 +448,35 @@ class DataManager: ObservableObject {
     }
     
     func logTaskCompletion(task: Task, goalId: String?, userId: String) {
-        guard let goalId = goalId else { return }
+        // Log to goal timeline if linked
+        if let goalId = goalId {
+            let entry = TimelineEntry(
+                type: .taskCompleted,
+                title: "Task Completed",
+                description: "Completed task: \(task.title)",
+                relatedItemId: task.id
+            )
+            addTimelineEntry(to: goalId, entry: entry, userId: userId)
+        }
         
-        let entry = TimelineEntry(
-            type: .taskCompleted,
-            title: "Task Completed",
-            description: "Completed task: \(task.title)",
-            relatedItemId: task.id
-        )
-        
-        addTimelineEntry(to: goalId, entry: entry, userId: userId)
+        // Update linked Key Indicators
+        updateKeyIndicatorsForTaskCompletion(task: task, userId: userId)
     }
     
     func logEventCompletion(event: CalendarEvent, goalId: String?, userId: String) {
-        guard let goalId = goalId else { return }
+        // Log to goal timeline if linked
+        if let goalId = goalId {
+            let entry = TimelineEntry(
+                type: .eventCompleted,
+                title: "Event Completed",
+                description: "Completed event: \(event.title)",
+                relatedItemId: event.id
+            )
+            addTimelineEntry(to: goalId, entry: entry, userId: userId)
+        }
         
-        let entry = TimelineEntry(
-            type: .eventCompleted,
-            title: "Event Completed",
-            description: "Completed event: \(event.title)",
-            relatedItemId: event.id
-        )
-        
-        addTimelineEntry(to: goalId, entry: entry, userId: userId)
+        // Update linked Key Indicators
+        updateKeyIndicatorsForEventCompletion(event: event, userId: userId)
     }
     
     func logNoteAdded(note: Note, goalId: String, userId: String) {
@@ -495,6 +501,29 @@ class DataManager: ObservableObject {
         )
         
         addTimelineEntry(to: goalId, entry: entry, userId: userId)
+    }
+    
+    // MARK: - Key Indicator Progress Updates
+    func updateKeyIndicatorsForTaskCompletion(task: Task, userId: String) {
+        for kiId in task.linkedKeyIndicatorIds {
+            if let kiIndex = keyIndicators.firstIndex(where: { $0.id == kiId }) {
+                var updatedKI = keyIndicators[kiIndex]
+                updatedKI.currentWeekProgress += 1
+                updatedKI.updatedAt = Date()
+                updateKeyIndicator(updatedKI, userId: userId)
+            }
+        }
+    }
+    
+    func updateKeyIndicatorsForEventCompletion(event: CalendarEvent, userId: String) {
+        for kiId in event.linkedKeyIndicatorIds {
+            if let kiIndex = keyIndicators.firstIndex(where: { $0.id == kiId }) {
+                var updatedKI = keyIndicators[kiIndex]
+                updatedKI.currentWeekProgress += 1
+                updatedKI.updatedAt = Date()
+                updateKeyIndicator(updatedKI, userId: userId)
+            }
+        }
     }
     
     // MARK: - Enhanced Goal Update

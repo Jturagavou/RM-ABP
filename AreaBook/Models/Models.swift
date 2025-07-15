@@ -78,6 +78,8 @@ struct Goal: Identifiable, Codable {
     var updatedAt: Date
     var linkedNoteIds: [String]
     var stickyNotes: [StickyNote]
+    var timeline: [TimelineEntry]
+    var dividerCategory: String?
     
     init(title: String, description: String, keyIndicatorIds: [String] = [], targetDate: Date? = nil) {
         self.id = UUID().uuidString
@@ -91,6 +93,8 @@ struct Goal: Identifiable, Codable {
         self.updatedAt = Date()
         self.linkedNoteIds = []
         self.stickyNotes = []
+        self.timeline = []
+        self.dividerCategory = nil
     }
 }
 
@@ -99,6 +103,81 @@ enum GoalStatus: String, Codable, CaseIterable {
     case completed = "completed"
     case paused = "paused"
     case cancelled = "cancelled"
+}
+
+// MARK: - Timeline Entry Models
+struct TimelineEntry: Identifiable, Codable {
+    let id: String
+    var type: TimelineEntryType
+    var title: String
+    var description: String
+    var timestamp: Date
+    var relatedItemId: String?
+    var progressChange: Int? // For progress updates
+    var metadata: [String: String]
+    
+    init(type: TimelineEntryType, title: String, description: String, relatedItemId: String? = nil, progressChange: Int? = nil) {
+        self.id = UUID().uuidString
+        self.type = type
+        self.title = title
+        self.description = description
+        self.timestamp = Date()
+        self.relatedItemId = relatedItemId
+        self.progressChange = progressChange
+        self.metadata = [:]
+    }
+}
+
+enum TimelineEntryType: String, Codable, CaseIterable {
+    case taskCompleted = "task_completed"
+    case eventCompleted = "event_completed"
+    case noteAdded = "note_added"
+    case progressUpdate = "progress_update"
+    case milestone = "milestone"
+    case statusChange = "status_change"
+    
+    var icon: String {
+        switch self {
+        case .taskCompleted: return "checkmark.circle.fill"
+        case .eventCompleted: return "calendar.badge.checkmark"
+        case .noteAdded: return "doc.text.fill"
+        case .progressUpdate: return "chart.bar.fill"
+        case .milestone: return "flag.fill"
+        case .statusChange: return "arrow.triangle.2.circlepath"
+        }
+    }
+    
+    var color: String {
+        switch self {
+        case .taskCompleted: return "#10B981"
+        case .eventCompleted: return "#3B82F6"
+        case .noteAdded: return "#8B5CF6"
+        case .progressUpdate: return "#F59E0B"
+        case .milestone: return "#EF4444"
+        case .statusChange: return "#6B7280"
+        }
+    }
+}
+
+// MARK: - Goal Divider Models
+struct GoalDivider: Identifiable, Codable {
+    let id: String
+    var name: String
+    var color: String
+    var icon: String
+    var sortOrder: Int
+    var createdAt: Date
+    var updatedAt: Date
+    
+    init(name: String, color: String = "#3B82F6", icon: String = "folder.fill") {
+        self.id = UUID().uuidString
+        self.name = name
+        self.color = color
+        self.icon = icon
+        self.sortOrder = 0
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
 }
 
 struct StickyNote: Identifiable, Codable {

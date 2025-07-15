@@ -18,6 +18,18 @@ class CollaborationManager: ObservableObject {
     
     // MARK: - Group Management
     
+    func inviteUserToGroup(groupId: String, userId: String, invitedBy: String) async throws {
+        // In a real app, this would send an invitation notification
+        // For now, we'll automatically add the user to the group
+        let member = GroupMember(userId: userId, role: .member, joinedAt: Date())
+        try await db.collection("groups").document(groupId).updateData([
+            "members": FieldValue.arrayUnion([member.firestoreData])
+        ])
+        
+        // Add to user's groups
+        try await addUserToGroup(userId: userId, groupId: groupId, role: .member)
+    }
+    
     func createGroup(name: String, description: String, creatorId: String) async throws -> AccountabilityGroup {
         let group = AccountabilityGroup(
             name: name,

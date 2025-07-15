@@ -22,12 +22,14 @@ struct CreateEventView: View {
     @State private var showingTaskCreation = false
     
     let eventToEdit: CalendarEvent?
+    let prefilledDate: Date?
     
     private let categories = ["Personal", "Church", "School", "Work", "Family", "Health", "Other"]
     private let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     
-    init(eventToEdit: CalendarEvent? = nil) {
+    init(eventToEdit: CalendarEvent? = nil, prefilledDate: Date? = nil) {
         self.eventToEdit = eventToEdit
+        self.prefilledDate = prefilledDate
     }
     
     var body: some View {
@@ -199,6 +201,7 @@ struct CreateEventView: View {
             .onAppear {
                 loadEventData()
                 setupDefaultRecurrence()
+                setupPrefilledDate()
             }
             .sheet(isPresented: $showingTaskCreation) {
                 CreateTaskForEventView { task in
@@ -212,6 +215,17 @@ struct CreateEventView: View {
         if eventToEdit == nil {
             // Set default days of week based on start date
             let dayOfWeek = Calendar.current.component(.weekday, from: startDate) - 1
+            selectedDaysOfWeek = [dayOfWeek]
+        }
+    }
+    
+    private func setupPrefilledDate() {
+        if let prefilled = prefilledDate, eventToEdit == nil {
+            startDate = prefilled
+            endDate = Calendar.current.date(byAdding: .hour, value: 1, to: prefilled) ?? prefilled
+            
+            // Update default recurrence days
+            let dayOfWeek = Calendar.current.component(.weekday, from: prefilled) - 1
             selectedDaysOfWeek = [dayOfWeek]
         }
     }

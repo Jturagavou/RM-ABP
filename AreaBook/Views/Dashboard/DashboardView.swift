@@ -13,6 +13,7 @@ struct DashboardView: View {
                 LazyVStack(spacing: 20) {
                     // Header with user greeting
                     HeaderView()
+                        .padding(.top, 10)
                     
                     // Daily Quote
                     if let quote = dashboardData?.quote {
@@ -38,8 +39,13 @@ struct DashboardView: View {
                     if let goals = dashboardData?.recentGoals, !goals.isEmpty {
                         RecentGoalsSection(goals: goals)
                     }
+                    
+                    // Bottom padding for floating button
+                    Spacer()
+                        .frame(height: 100)
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.top, 5)
             }
             .navigationTitle("Dashboard")
             .navigationBarTitleDisplayMode(.large)

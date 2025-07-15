@@ -13,6 +13,7 @@ class DataManager: ObservableObject {
     @Published var notes: [Note] = []
     @Published var accountabilityGroups: [AccountabilityGroup] = []
     @Published var encouragements: [Encouragement] = []
+    @Published var goalDividers: [GoalDivider] = []
     
     @Published var isLoading = false
     @Published var errorMessage = ""
@@ -35,6 +36,7 @@ class DataManager: ObservableObject {
         setupNotesListener(userId: userId)
         setupGroupsListener(userId: userId)
         setupEncouragementListener(userId: userId)
+        setupGoalDividersListener(userId: userId)
     }
     
     func removeListeners() {
@@ -165,13 +167,23 @@ class DataManager: ObservableObject {
         }
     }
     
+    // MARK: - Enhanced Event Update
     func updateEvent(_ event: CalendarEvent, userId: String) {
+        let oldEvent = events.first { $0.id == event.id }
+        
         var updatedEvent = event
         updatedEvent.updatedAt = Date()
         
         do {
             try db.collection("users").document(userId).collection("events")
                 .document(event.id).setData(from: updatedEvent)
+                
+            // Log completion to goal timeline if event was completed
+            if oldEvent?.status != .completed && event.status == .completed {
+                if let goalId = event.linkedGoalId {
+                    logEventCompletion(event: event, goalId: goalId, userId: userId)
+                }
+            }
         } catch {
             showError("Failed to update event: \(error.localizedDescription)")
         }
@@ -214,6 +226,8 @@ class DataManager: ObservableObject {
     }
     
     func updateTask(_ task: Task, userId: String) {
+        let oldTask = tasks.first { $0.id == task.id }
+        
         var updatedTask = task
         updatedTask.updatedAt = Date()
         if task.status == .completed && task.completedAt == nil {
@@ -223,6 +237,13 @@ class DataManager: ObservableObject {
         do {
             try db.collection("users").document(userId).collection("tasks")
                 .document(task.id).setData(from: updatedTask)
+                
+            // Log completion to goal timeline if task was completed
+            if oldTask?.status != .completed && task.status == .completed {
+                if let goalId = task.linkedGoalId {
+                    logTaskCompletion(task: task, goalId: goalId, userId: userId)
+                }
+            }
         } catch {
             showError("Failed to update task: \(error.localizedDescription)")
         }
@@ -362,6 +383,137 @@ class DataManager: ObservableObject {
                 .document(encouragement.id).setData(from: updatedEncouragement)
         } catch {
             showError("Failed to mark encouragement as read: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Goal Dividers
+    private func setupGoalDividersListener(userId: String) {
+        let listener = db.collection("users").document(userId).collection("goalDividers")
+            .order(by: "sortOrder")
+            .addSnapshotListener { [weak self] snapshot, error in
+                if let error = error {
+                    self?.showError(error.localizedDescription)
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else { return }
+                
+                self?.goalDividers = documents.compactMap { doc -> GoalDivider? in
+                    try? doc.data(as: GoalDivider.self)
+                }
+            }
+        listeners.append(listener)
+    }
+    
+    func createGoalDivider(_ divider: GoalDivider, userId: String) {
+        do {
+            try db.collection("users").document(userId).collection("goalDividers")
+                .document(divider.id).setData(from: divider)
+        } catch {
+            showError("Failed to create goal divider: \(error.localizedDescription)")
+        }
+    }
+    
+    func updateGoalDivider(_ divider: GoalDivider, userId: String) {
+        var updatedDivider = divider
+        updatedDivider.updatedAt = Date()
+        
+        do {
+            try db.collection("users").document(userId).collection("goalDividers")
+                .document(divider.id).setData(from: updatedDivider)
+        } catch {
+            showError("Failed to update goal divider: \(error.localizedDescription)")
+        }
+    }
+    
+    func deleteGoalDivider(_ divider: GoalDivider, userId: String) {
+        db.collection("users").document(userId).collection("goalDividers")
+            .document(divider.id).delete { [weak self] error in
+                if let error = error {
+                    self?.showError("Failed to delete goal divider: \(error.localizedDescription)")
+                }
+            }
+    }
+    
+    // MARK: - Timeline Management
+    func addTimelineEntry(to goalId: String, entry: TimelineEntry, userId: String) {
+        guard let goalIndex = goals.firstIndex(where: { $0.id == goalId }) else { return }
+        
+        var updatedGoal = goals[goalIndex]
+        updatedGoal.timeline.append(entry)
+        updatedGoal.timeline.sort { $0.timestamp > $1.timestamp }
+        updatedGoal.updatedAt = Date()
+        
+        updateGoal(updatedGoal, userId: userId)
+    }
+    
+    func logTaskCompletion(task: Task, goalId: String?, userId: String) {
+        guard let goalId = goalId else { return }
+        
+        let entry = TimelineEntry(
+            type: .taskCompleted,
+            title: "Task Completed",
+            description: "Completed task: \(task.title)",
+            relatedItemId: task.id
+        )
+        
+        addTimelineEntry(to: goalId, entry: entry, userId: userId)
+    }
+    
+    func logEventCompletion(event: CalendarEvent, goalId: String?, userId: String) {
+        guard let goalId = goalId else { return }
+        
+        let entry = TimelineEntry(
+            type: .eventCompleted,
+            title: "Event Completed",
+            description: "Completed event: \(event.title)",
+            relatedItemId: event.id
+        )
+        
+        addTimelineEntry(to: goalId, entry: entry, userId: userId)
+    }
+    
+    func logNoteAdded(note: Note, goalId: String, userId: String) {
+        let entry = TimelineEntry(
+            type: .noteAdded,
+            title: "Note Added",
+            description: "Added note: \(note.title)",
+            relatedItemId: note.id
+        )
+        
+        addTimelineEntry(to: goalId, entry: entry, userId: userId)
+    }
+    
+    func logProgressUpdate(goalId: String, oldProgress: Int, newProgress: Int, userId: String) {
+        let progressChange = newProgress - oldProgress
+        let entry = TimelineEntry(
+            type: .progressUpdate,
+            title: "Progress Updated",
+            description: "Progress changed from \(oldProgress)% to \(newProgress)%",
+            relatedItemId: goalId,
+            progressChange: progressChange
+        )
+        
+        addTimelineEntry(to: goalId, entry: entry, userId: userId)
+    }
+    
+    // MARK: - Enhanced Goal Update
+    func updateGoal(_ goal: Goal, userId: String) {
+        let oldGoal = goals.first { $0.id == goal.id }
+        
+        var updatedGoal = goal
+        updatedGoal.updatedAt = Date()
+        
+        do {
+            try db.collection("users").document(userId).collection("goals")
+                .document(goal.id).setData(from: updatedGoal)
+                
+            // Log progress changes
+            if let oldProgress = oldGoal?.progress, oldProgress != goal.progress {
+                logProgressUpdate(goalId: goal.id, oldProgress: oldProgress, newProgress: goal.progress, userId: userId)
+            }
+        } catch {
+            showError("Failed to update goal: \(error.localizedDescription)")
         }
     }
     

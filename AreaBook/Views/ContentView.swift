@@ -135,6 +135,7 @@ struct MainTabView: View {
                 .tag(Tab.settings)
         }
         .accentColor(.blue)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .overlay(
             // Floating Add Button
             VStack {
@@ -144,9 +145,11 @@ struct MainTabView: View {
                     FloatingActionButton(selectedTab: selectedTab) {
                         showingCreateSheet = true
                     }
-                    .padding()
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 90) // Adjust to sit above tab bar
                 }
             }
+            .ignoresSafeArea(.keyboard)
         )
         .sheet(isPresented: $showingCreateSheet) {
             CreateItemSheet(selectedTab: selectedTab)

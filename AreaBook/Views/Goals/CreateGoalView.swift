@@ -14,6 +14,7 @@ struct CreateGoalView: View {
     @State private var showingColorPicker = false
     @State private var selectedStickyColor = "#FBBF24"
     @State private var newStickyText = ""
+    @State private var selectedDividerCategory: String?
     
     let goalToEdit: Goal?
     
@@ -61,6 +62,65 @@ struct CreateGoalView: View {
                                 set: { targetDate = $0 }
                             ), displayedComponents: [.date])
                             .datePickerStyle(WheelDatePickerStyle())
+                        }
+                    }
+                    
+                    // Category Selection
+                    if !dataManager.goalDividers.isEmpty {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Category")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    // Uncategorized option
+                                    Button(action: {
+                                        selectedDividerCategory = nil
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "tray")
+                                                .foregroundColor(.gray)
+                                            Text("Uncategorized")
+                                                .font(.subheadline)
+                                                .foregroundColor(.gray)
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(selectedDividerCategory == nil ? Color.gray.opacity(0.2) : Color.clear)
+                                        .cornerRadius(8)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(selectedDividerCategory == nil ? Color.gray : Color.clear, lineWidth: 1)
+                                        )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                    ForEach(dataManager.goalDividers) { divider in
+                                        Button(action: {
+                                            selectedDividerCategory = divider.id
+                                        }) {
+                                            HStack {
+                                                Image(systemName: divider.icon)
+                                                    .foregroundColor(Color(hex: divider.color))
+                                                Text(divider.name)
+                                                    .font(.subheadline)
+                                                    .foregroundColor(Color(hex: divider.color))
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(selectedDividerCategory == divider.id ? Color(hex: divider.color).opacity(0.2) : Color.clear)
+                                            .cornerRadius(8)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(selectedDividerCategory == divider.id ? Color(hex: divider.color) : Color.clear, lineWidth: 1)
+                                            )
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
                         }
                     }
                     
@@ -160,26 +220,29 @@ struct CreateGoalView: View {
         targetDate = goal.targetDate
         hasTargetDate = goal.targetDate != nil
         stickyNotes = goal.stickyNotes
+        selectedDividerCategory = goal.dividerCategory
     }
     
     private func saveGoal() {
         guard let userId = authViewModel.currentUser?.id else { return }
         
-        let goal: Goal
+        var goal: Goal
         if let existingGoal = goalToEdit {
             goal = Goal(
-                id: existingGoal.id,
                 title: title,
                 description: description,
                 keyIndicatorIds: Array(selectedKIIds),
-                progress: existingGoal.progress,
-                status: existingGoal.status,
-                targetDate: hasTargetDate ? targetDate : nil,
-                createdAt: existingGoal.createdAt,
-                updatedAt: Date(),
-                linkedNoteIds: existingGoal.linkedNoteIds,
-                stickyNotes: stickyNotes
+                targetDate: hasTargetDate ? targetDate : nil
             )
+            goal.id = existingGoal.id
+            goal.progress = existingGoal.progress
+            goal.status = existingGoal.status
+            goal.createdAt = existingGoal.createdAt
+            goal.updatedAt = Date()
+            goal.linkedNoteIds = existingGoal.linkedNoteIds
+            goal.stickyNotes = stickyNotes
+            goal.timeline = existingGoal.timeline
+            goal.dividerCategory = selectedDividerCategory
         } else {
             goal = Goal(
                 title: title,
@@ -188,6 +251,7 @@ struct CreateGoalView: View {
                 targetDate: hasTargetDate ? targetDate : nil
             )
             goal.stickyNotes = stickyNotes
+            goal.dividerCategory = selectedDividerCategory
         }
         
         if goalToEdit != nil {

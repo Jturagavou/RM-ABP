@@ -26,6 +26,25 @@ struct UserSettings: Codable {
     var dailyKIReviewTime: String?
 }
 
+// MARK: - User Suggestion Models
+struct UserSuggestion: Identifiable, Codable {
+    let id: String
+    let email: String
+    let name: String
+    let avatar: String?
+    let mutualConnections: Int
+    let lastSeen: Date?
+    
+    init(from user: User, mutualConnections: Int = 0) {
+        self.id = user.id
+        self.email = user.email
+        self.name = user.name
+        self.avatar = user.avatar
+        self.mutualConnections = mutualConnections
+        self.lastSeen = user.lastSeen
+    }
+}
+
 enum CalendarViewType: String, Codable, CaseIterable {
     case monthly = "monthly"
     case weekly = "weekly"
@@ -78,8 +97,10 @@ struct Goal: Identifiable, Codable {
     var updatedAt: Date
     var linkedNoteIds: [String]
     var stickyNotes: [StickyNote]
+    var connectedKeyIndicatorId: String? // New: Connected key indicator for progress tracking
+    var targetProgressAmount: Int? // New: Target progress amount for this goal
     
-    init(title: String, description: String, keyIndicatorIds: [String] = [], targetDate: Date? = nil) {
+    init(title: String, description: String, keyIndicatorIds: [String] = [], targetDate: Date? = nil, connectedKeyIndicatorId: String? = nil, targetProgressAmount: Int? = nil) {
         self.id = UUID().uuidString
         self.title = title
         self.description = description
@@ -91,6 +112,8 @@ struct Goal: Identifiable, Codable {
         self.updatedAt = Date()
         self.linkedNoteIds = []
         self.stickyNotes = []
+        self.connectedKeyIndicatorId = connectedKeyIndicatorId
+        self.targetProgressAmount = targetProgressAmount
     }
 }
 
@@ -117,6 +140,81 @@ struct StickyNote: Identifiable, Codable {
     }
 }
 
+// MARK: - Timeline Models
+struct TimelineItem: Identifiable, Codable {
+    let id: String
+    let type: TimelineItemType
+    let title: String
+    let description: String?
+    let createdAt: Date
+    let completedAt: Date?
+    let isCompleted: Bool
+    let linkedGoalId: String?
+    let progressAmount: Int?
+    let connectedKeyIndicatorId: String?
+    
+    init(from event: CalendarEvent) {
+        self.id = event.id
+        self.type = .event
+        self.title = event.title
+        self.description = event.description
+        self.createdAt = event.createdAt
+        self.completedAt = event.status == .completed ? event.updatedAt : nil
+        self.isCompleted = event.status == .completed
+        self.linkedGoalId = event.linkedGoalId
+        self.progressAmount = event.progressAmount
+        self.connectedKeyIndicatorId = event.connectedKeyIndicatorId
+    }
+    
+    init(from task: Task) {
+        self.id = task.id
+        self.type = .task
+        self.title = task.title
+        self.description = task.description
+        self.createdAt = task.createdAt
+        self.completedAt = task.completedAt
+        self.isCompleted = task.status == .completed
+        self.linkedGoalId = task.linkedGoalId
+        self.progressAmount = task.progressAmount
+        self.connectedKeyIndicatorId = task.connectedKeyIndicatorId
+    }
+    
+    init(from note: Note) {
+        self.id = note.id
+        self.type = .note
+        self.title = note.title
+        self.description = note.content
+        self.createdAt = note.createdAt
+        self.completedAt = nil
+        self.isCompleted = false
+        self.linkedGoalId = note.linkedGoalIds.first
+        self.progressAmount = nil
+        self.connectedKeyIndicatorId = nil
+    }
+}
+
+enum TimelineItemType: String, Codable, CaseIterable {
+    case event = "event"
+    case task = "task"
+    case note = "note"
+    
+    var icon: String {
+        switch self {
+        case .event: return "calendar"
+        case .task: return "checkmark.circle"
+        case .note: return "note.text"
+        }
+    }
+    
+    var color: String {
+        switch self {
+        case .event: return "#3B82F6"
+        case .task: return "#10B981"
+        case .note: return "#8B5CF6"
+        }
+    }
+}
+
 // MARK: - Calendar Event Models
 struct CalendarEvent: Identifiable, Codable {
     let id: String
@@ -132,8 +230,10 @@ struct CalendarEvent: Identifiable, Codable {
     var status: EventStatus
     var createdAt: Date
     var updatedAt: Date
+    var progressAmount: Int? // New: Progress amount for this event
+    var connectedKeyIndicatorId: String? // New: Connected key indicator for progress tracking
     
-    init(title: String, description: String, category: String, startTime: Date, endTime: Date, linkedGoalId: String? = nil) {
+    init(title: String, description: String, category: String, startTime: Date, endTime: Date, linkedGoalId: String? = nil, progressAmount: Int? = nil, connectedKeyIndicatorId: String? = nil) {
         self.id = UUID().uuidString
         self.title = title
         self.description = description
@@ -147,6 +247,8 @@ struct CalendarEvent: Identifiable, Codable {
         self.status = .scheduled
         self.createdAt = Date()
         self.updatedAt = Date()
+        self.progressAmount = progressAmount
+        self.connectedKeyIndicatorId = connectedKeyIndicatorId
     }
 }
 
@@ -184,8 +286,10 @@ struct Task: Identifiable, Codable {
     var createdAt: Date
     var updatedAt: Date
     var completedAt: Date?
+    var progressAmount: Int? // New: Progress amount for this task
+    var connectedKeyIndicatorId: String? // New: Connected key indicator for progress tracking
     
-    init(title: String, description: String? = nil, priority: TaskPriority = .medium, dueDate: Date? = nil, linkedGoalId: String? = nil, linkedEventId: String? = nil) {
+    init(title: String, description: String? = nil, priority: TaskPriority = .medium, dueDate: Date? = nil, linkedGoalId: String? = nil, linkedEventId: String? = nil, progressAmount: Int? = nil, connectedKeyIndicatorId: String? = nil) {
         self.id = UUID().uuidString
         self.title = title
         self.description = description
@@ -198,6 +302,8 @@ struct Task: Identifiable, Codable {
         self.createdAt = Date()
         self.updatedAt = Date()
         self.completedAt = nil
+        self.progressAmount = progressAmount
+        self.connectedKeyIndicatorId = connectedKeyIndicatorId
     }
 }
 
@@ -274,8 +380,10 @@ struct AccountabilityGroup: Identifiable, Codable {
     var members: [GroupMember]
     var createdAt: Date
     var updatedAt: Date
+    var settings: GroupSettings
+    var description: String // New: Description field for groups
     
-    init(name: String, type: GroupType, parentGroupId: String? = nil) {
+    init(name: String, type: GroupType, parentGroupId: String? = nil, description: String = "") {
         self.id = UUID().uuidString
         self.name = name
         self.type = type
@@ -283,6 +391,8 @@ struct AccountabilityGroup: Identifiable, Codable {
         self.members = []
         self.createdAt = Date()
         self.updatedAt = Date()
+        self.settings = GroupSettings()
+        self.description = description
     }
 }
 
@@ -380,6 +490,26 @@ enum EncouragementType: String, Codable, CaseIterable {
     case encouragement = "encouragement"
     case nudge = "nudge"
     case congratulations = "congratulations"
+}
+
+struct GroupSettings: Codable {
+    var isPublic: Bool = false
+    var allowInvitations: Bool = true
+    var shareProgress: Bool = true
+    var allowChallenges: Bool = true
+    var requireApproval: Bool = false
+    var maxMembers: Int = 50
+    
+    init() {}
+    
+    init(from data: [String: Any]) {
+        self.isPublic = data["isPublic"] as? Bool ?? false
+        self.allowInvitations = data["allowInvitations"] as? Bool ?? true
+        self.shareProgress = data["shareProgress"] as? Bool ?? true
+        self.allowChallenges = data["allowChallenges"] as? Bool ?? true
+        self.requireApproval = data["requireApproval"] as? Bool ?? false
+        self.maxMembers = data["maxMembers"] as? Int ?? 50
+    }
 }
 
 // MARK: - Dashboard Models

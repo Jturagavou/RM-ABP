@@ -82,11 +82,16 @@ struct TasksView: View {
     private func toggleTaskCompletion(_ task: Task) {
         guard let userId = authViewModel.currentUser?.id else { return }
         
-        var updatedTask = task
-        updatedTask.status = task.status == .completed ? .pending : .completed
-        updatedTask.completedAt = updatedTask.status == .completed ? Date() : nil
-        
-        dataManager.updateTask(updatedTask, userId: userId)
+        if task.status == .completed {
+            // Mark as pending
+            var updatedTask = task
+            updatedTask.status = .pending
+            updatedTask.completedAt = nil
+            dataManager.updateTask(updatedTask, userId: userId)
+        } else {
+            // Mark as completed with progress tracking
+            dataManager.handleTaskCompletion(task, userId: userId)
+        }
     }
 }
 

@@ -20,6 +20,9 @@ struct CreateEventView: View {
     @State private var hasRecurrenceEndDate = false
     @State private var linkedTasks: [Task] = []
     @State private var showingTaskCreation = false
+    @State private var progressAmount: Int = 0
+    @State private var connectedKeyIndicatorId: String?
+    @State private var hasProgressTracking = false
     
     let eventToEdit: CalendarEvent?
     
@@ -75,6 +78,40 @@ struct CreateEventView: View {
                             Text("None").tag(nil as String?)
                             ForEach(dataManager.goals.filter { $0.status == .active }) { goal in
                                 Text(goal.title).tag(goal.id as String?)
+                            }
+                        }
+                    }
+                }
+                
+                // Progress Tracking Section
+                if !dataManager.keyIndicators.isEmpty {
+                    Section("Progress Tracking") {
+                        Toggle("Track Progress", isOn: $hasProgressTracking)
+                        
+                        if hasProgressTracking {
+                            Picker("Key Indicator", selection: $connectedKeyIndicatorId) {
+                                Text("None").tag(nil as String?)
+                                ForEach(dataManager.keyIndicators) { ki in
+                                    Text(ki.name).tag(ki.id as String?)
+                                }
+                            }
+                            
+                            HStack {
+                                Text("Progress Amount:")
+                                
+                                Spacer()
+                                
+                                Stepper(value: $progressAmount, in: 0...1000, step: 1) {
+                                    Text("\(progressAmount)")
+                                        .fontWeight(.medium)
+                                }
+                            }
+                            
+                            if let selectedKIId = connectedKeyIndicatorId,
+                               let ki = dataManager.keyIndicators.first(where: { $0.id == selectedKIId }) {
+                                Text("Completing this event will add \(progressAmount) to \(ki.name) (\(ki.unit))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                             }
                         }
                     }
@@ -237,6 +274,11 @@ struct CreateEventView: View {
         
         // Load linked tasks
         linkedTasks = dataManager.getTasksForEvent(event.id)
+        
+        // Load progress tracking data
+        progressAmount = event.progressAmount ?? 0
+        connectedKeyIndicatorId = event.connectedKeyIndicatorId
+        hasProgressTracking = event.connectedKeyIndicatorId != nil
     }
     
     private func saveEvent() {
@@ -253,23 +295,21 @@ struct CreateEventView: View {
             )
         }
         
-        let event: CalendarEvent
+        var event: CalendarEvent
         if let existingEvent = eventToEdit {
-            event = CalendarEvent(
-                id: existingEvent.id,
-                title: title,
-                description: description,
-                category: category,
-                startTime: startDate,
-                endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
-                linkedGoalId: selectedGoalId,
-                taskIds: linkedTasks.map { $0.id },
-                isRecurring: isRecurring,
-                recurrencePattern: recurrencePattern,
-                status: existingEvent.status,
-                createdAt: existingEvent.createdAt,
-                updatedAt: Date()
-            )
+            event = existingEvent
+            event.title = title
+            event.description = description
+            event.category = category
+            event.startTime = startDate
+            event.endTime = isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate
+            event.linkedGoalId = selectedGoalId
+            event.taskIds = linkedTasks.map { $0.id }
+            event.isRecurring = isRecurring
+            event.recurrencePattern = recurrencePattern
+            event.updatedAt = Date()
+            event.progressAmount = hasProgressTracking ? progressAmount : nil
+            event.connectedKeyIndicatorId = hasProgressTracking ? connectedKeyIndicatorId : nil
         } else {
             event = CalendarEvent(
                 title: title,
@@ -277,7 +317,9 @@ struct CreateEventView: View {
                 category: category,
                 startTime: startDate,
                 endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
-                linkedGoalId: selectedGoalId
+                linkedGoalId: selectedGoalId,
+                progressAmount: hasProgressTracking ? progressAmount : nil,
+                connectedKeyIndicatorId: hasProgressTracking ? connectedKeyIndicatorId : nil
             )
             event.taskIds = linkedTasks.map { $0.id }
             event.isRecurring = isRecurring

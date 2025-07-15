@@ -411,6 +411,134 @@ class DataManager: ObservableObject {
         return notes.filter { $0.linkedGoalIds.contains(goalId) }
     }
     
+    // MARK: - New Features - Progress Tracking
+    func updateGoalProgress(_ goalId: String, additionalProgress: Int, userId: String) {
+        guard let goalIndex = goals.firstIndex(where: { $0.id == goalId }) else { return }
+        
+        var updatedGoal = goals[goalIndex]
+        updatedGoal.progress = min(updatedGoal.progress + additionalProgress, 100)
+        
+        // Update connected key indicator if exists
+        if let keyIndicatorId = updatedGoal.connectedKeyIndicatorId {
+            updateKeyIndicatorProgress(keyIndicatorId, additionalProgress: additionalProgress, userId: userId)
+        }
+        
+        updateGoal(updatedGoal, userId: userId)
+    }
+    
+    func updateKeyIndicatorProgress(_ keyIndicatorId: String, additionalProgress: Int, userId: String) {
+        guard let kiIndex = keyIndicators.firstIndex(where: { $0.id == keyIndicatorId }) else { return }
+        
+        var updatedKI = keyIndicators[kiIndex]
+        updatedKI.currentWeekProgress = min(updatedKI.currentWeekProgress + additionalProgress, updatedKI.weeklyTarget)
+        
+        updateKeyIndicator(updatedKI, userId: userId)
+    }
+    
+    func handleTaskCompletion(_ task: Task, userId: String) {
+        var updatedTask = task
+        updatedTask.status = .completed
+        updatedTask.completedAt = Date()
+        
+        // Update goal progress if connected
+        if let goalId = task.linkedGoalId, let progressAmount = task.progressAmount {
+            updateGoalProgress(goalId, additionalProgress: progressAmount, userId: userId)
+        }
+        
+        // Update key indicator progress if connected
+        if let keyIndicatorId = task.connectedKeyIndicatorId, let progressAmount = task.progressAmount {
+            updateKeyIndicatorProgress(keyIndicatorId, additionalProgress: progressAmount, userId: userId)
+        }
+        
+        updateTask(updatedTask, userId: userId)
+    }
+    
+    func handleEventCompletion(_ event: CalendarEvent, userId: String) {
+        var updatedEvent = event
+        updatedEvent.status = .completed
+        updatedEvent.updatedAt = Date()
+        
+        // Update goal progress if connected
+        if let goalId = event.linkedGoalId, let progressAmount = event.progressAmount {
+            updateGoalProgress(goalId, additionalProgress: progressAmount, userId: userId)
+        }
+        
+        // Update key indicator progress if connected
+        if let keyIndicatorId = event.connectedKeyIndicatorId, let progressAmount = event.progressAmount {
+            updateKeyIndicatorProgress(keyIndicatorId, additionalProgress: progressAmount, userId: userId)
+        }
+        
+        updateEvent(updatedEvent, userId: userId)
+    }
+    
+    // MARK: - Timeline Generation
+    func getTimelineForGoal(_ goalId: String) -> [TimelineItem] {
+        var timelineItems: [TimelineItem] = []
+        
+        // Add events linked to goal
+        let goalEvents = events.filter { $0.linkedGoalId == goalId }
+        timelineItems.append(contentsOf: goalEvents.map { TimelineItem(from: $0) })
+        
+        // Add tasks linked to goal
+        let goalTasks = tasks.filter { $0.linkedGoalId == goalId }
+        timelineItems.append(contentsOf: goalTasks.map { TimelineItem(from: $0) })
+        
+        // Add notes linked to goal
+        let goalNotes = notes.filter { $0.linkedGoalIds.contains(goalId) }
+        timelineItems.append(contentsOf: goalNotes.map { TimelineItem(from: $0) })
+        
+        // Sort by creation date
+        return timelineItems.sorted { $0.createdAt < $1.createdAt }
+    }
+    
+    // MARK: - User Suggestions
+    func getUserSuggestions(searchText: String = "", limit: Int = 10) async -> [UserSuggestion] {
+        var suggestions: [UserSuggestion] = []
+        
+        do {
+            let query = searchText.isEmpty ? 
+                db.collection("users").limit(to: limit) :
+                db.collection("users")
+                    .whereField("name", isGreaterThanOrEqualTo: searchText)
+                    .whereField("name", isLessThan: searchText + "\u{F8FF}")
+                    .limit(to: limit)
+            
+            let snapshot = try await query.getDocuments()
+            
+            for document in snapshot.documents {
+                if let user = try? document.data(as: User.self) {
+                    let suggestion = UserSuggestion(from: user, mutualConnections: 0)
+                    suggestions.append(suggestion)
+                }
+            }
+        } catch {
+            print("Error fetching user suggestions: \(error)")
+        }
+        
+        return suggestions
+    }
+    
+    func searchUsersByEmail(_ email: String) async -> [UserSuggestion] {
+        var suggestions: [UserSuggestion] = []
+        
+        do {
+            let snapshot = try await db.collection("users")
+                .whereField("email", isEqualTo: email)
+                .getDocuments()
+            
+            for document in snapshot.documents {
+                if let user = try? document.data(as: User.self) {
+                    let suggestion = UserSuggestion(from: user, mutualConnections: 0)
+                    suggestions.append(suggestion)
+                }
+            }
+        } catch {
+            print("Error searching users by email: \(error)")
+        }
+        
+        return suggestions
+    }
+    
     private func showError(_ message: String) {
         DispatchQueue.main.async {
             self.errorMessage = message

@@ -417,6 +417,8 @@ struct CreateGroupView: View {
     @State private var shareProgress = true
     @State private var allowChallenges = true
     @State private var isCreating = false
+    @State private var selectedMembers: [UserSuggestion] = []
+    @State private var showingUserSuggestions = false
     
     var body: some View {
         NavigationView {
@@ -432,6 +434,50 @@ struct CreateGroupView: View {
                     Toggle("Allow Invitations", isOn: $allowInvitations)
                     Toggle("Share Progress", isOn: $shareProgress)
                     Toggle("Allow Challenges", isOn: $allowChallenges)
+                }
+                
+                Section("Members") {
+                    Button("Add Members") {
+                        showingUserSuggestions = true
+                    }
+                    .foregroundColor(.blue)
+                    
+                    if selectedMembers.isEmpty {
+                        Text("No members added yet. You can add members now or invite them later.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        ForEach(selectedMembers, id: \.id) { member in
+                            HStack {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Text(member.name.prefix(1).uppercased())
+                                            .font(.caption)
+                                            .foregroundColor(.white)
+                                    )
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(member.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    Text(member.email)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Button("Remove") {
+                                    selectedMembers.removeAll { $0.id == member.id }
+                                }
+                                .font(.caption)
+                                .foregroundColor(.red)
+                            }
+                        }
+                    }
                 }
                 
                 Section("Privacy") {
@@ -454,6 +500,11 @@ struct CreateGroupView: View {
                         createGroup()
                     }
                     .disabled(groupName.isEmpty || isCreating)
+                }
+            }
+            .sheet(isPresented: $showingUserSuggestions) {
+                UserSuggestionView { users in
+                    selectedMembers.append(contentsOf: users)
                 }
             }
         }

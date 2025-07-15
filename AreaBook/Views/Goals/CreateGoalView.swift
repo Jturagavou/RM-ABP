@@ -14,6 +14,9 @@ struct CreateGoalView: View {
     @State private var showingColorPicker = false
     @State private var selectedStickyColor = "#FBBF24"
     @State private var newStickyText = ""
+    @State private var connectedKeyIndicatorId: String?
+    @State private var targetProgressAmount: Int = 0
+    @State private var hasProgressTracking = false
     
     let goalToEdit: Goal?
     
@@ -61,6 +64,53 @@ struct CreateGoalView: View {
                                 set: { targetDate = $0 }
                             ), displayedComponents: [.date])
                             .datePickerStyle(WheelDatePickerStyle())
+                        }
+                    }
+                    
+                    // Progress Tracking Section
+                    if !dataManager.keyIndicators.isEmpty {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Progress Tracking")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            Toggle("Enable Progress Tracking", isOn: $hasProgressTracking)
+                            
+                            if hasProgressTracking {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Connected Key Indicator")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    Picker("Select Key Indicator", selection: $connectedKeyIndicatorId) {
+                                        Text("None").tag(nil as String?)
+                                        ForEach(dataManager.keyIndicators) { ki in
+                                            Text(ki.name).tag(ki.id as String?)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                    
+                                    HStack {
+                                        Text("Target Progress Amount:")
+                                            .font(.subheadline)
+                                        
+                                        Spacer()
+                                        
+                                        Stepper(value: $targetProgressAmount, in: 0...1000, step: 1) {
+                                            Text("\(targetProgressAmount)")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                        }
+                                    }
+                                    
+                                    if let selectedKIId = connectedKeyIndicatorId,
+                                       let ki = dataManager.keyIndicators.first(where: { $0.id == selectedKIId }) {
+                                        Text("This goal will contribute to \(ki.name) (\(ki.unit))")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
                         }
                     }
                     
@@ -160,32 +210,33 @@ struct CreateGoalView: View {
         targetDate = goal.targetDate
         hasTargetDate = goal.targetDate != nil
         stickyNotes = goal.stickyNotes
+        connectedKeyIndicatorId = goal.connectedKeyIndicatorId
+        targetProgressAmount = goal.targetProgressAmount ?? 0
+        hasProgressTracking = goal.connectedKeyIndicatorId != nil
     }
     
     private func saveGoal() {
         guard let userId = authViewModel.currentUser?.id else { return }
         
-        let goal: Goal
+        var goal: Goal
         if let existingGoal = goalToEdit {
-            goal = Goal(
-                id: existingGoal.id,
-                title: title,
-                description: description,
-                keyIndicatorIds: Array(selectedKIIds),
-                progress: existingGoal.progress,
-                status: existingGoal.status,
-                targetDate: hasTargetDate ? targetDate : nil,
-                createdAt: existingGoal.createdAt,
-                updatedAt: Date(),
-                linkedNoteIds: existingGoal.linkedNoteIds,
-                stickyNotes: stickyNotes
-            )
+            goal = existingGoal
+            goal.title = title
+            goal.description = description
+            goal.keyIndicatorIds = Array(selectedKIIds)
+            goal.targetDate = hasTargetDate ? targetDate : nil
+            goal.updatedAt = Date()
+            goal.stickyNotes = stickyNotes
+            goal.connectedKeyIndicatorId = hasProgressTracking ? connectedKeyIndicatorId : nil
+            goal.targetProgressAmount = hasProgressTracking ? targetProgressAmount : nil
         } else {
             goal = Goal(
                 title: title,
                 description: description,
                 keyIndicatorIds: Array(selectedKIIds),
-                targetDate: hasTargetDate ? targetDate : nil
+                targetDate: hasTargetDate ? targetDate : nil,
+                connectedKeyIndicatorId: hasProgressTracking ? connectedKeyIndicatorId : nil,
+                targetProgressAmount: hasProgressTracking ? targetProgressAmount : nil
             )
             goal.stickyNotes = stickyNotes
         }

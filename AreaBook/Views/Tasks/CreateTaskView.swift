@@ -21,6 +21,9 @@ struct CreateTaskView: View {
     @State private var hasEstimatedDuration = false
     @State private var selectedDurationHours = 0
     @State private var selectedDurationMinutes = 30
+    @State private var progressAmount: Int = 0
+    @State private var connectedKeyIndicatorId: String?
+    @State private var hasProgressTracking = false
     
     let taskToEdit: Task?
     
@@ -141,6 +144,40 @@ struct CreateTaskView: View {
                     }
                 }
                 
+                // Progress Tracking Section
+                if !dataManager.keyIndicators.isEmpty {
+                    Section("Progress Tracking") {
+                        Toggle("Track Progress", isOn: $hasProgressTracking)
+                        
+                        if hasProgressTracking {
+                            Picker("Key Indicator", selection: $connectedKeyIndicatorId) {
+                                Text("None").tag(nil as String?)
+                                ForEach(dataManager.keyIndicators) { ki in
+                                    Text(ki.name).tag(ki.id as String?)
+                                }
+                            }
+                            
+                            HStack {
+                                Text("Progress Amount:")
+                                
+                                Spacer()
+                                
+                                Stepper(value: $progressAmount, in: 0...1000, step: 1) {
+                                    Text("\(progressAmount)")
+                                        .fontWeight(.medium)
+                                }
+                            }
+                            
+                            if let selectedKIId = connectedKeyIndicatorId,
+                               let ki = dataManager.keyIndicators.first(where: { $0.id == selectedKIId }) {
+                                Text("Completing this task will add \(progressAmount) to \(ki.name) (\(ki.unit))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                
                 // Subtasks Section
                 Section {
                     if subtasks.isEmpty {
@@ -248,27 +285,29 @@ struct CreateTaskView: View {
             selectedDurationHours = Int(duration) / 3600
             selectedDurationMinutes = (Int(duration) % 3600) / 60
         }
+        
+        // Load progress tracking data
+        progressAmount = task.progressAmount ?? 0
+        connectedKeyIndicatorId = task.connectedKeyIndicatorId
+        hasProgressTracking = task.connectedKeyIndicatorId != nil
     }
     
     private func saveTask() {
         guard let userId = authViewModel.currentUser?.id else { return }
         
-        let task: Task
+        var task: Task
         if let existingTask = taskToEdit {
-            task = Task(
-                id: existingTask.id,
-                title: title,
-                description: description.isEmpty ? nil : description,
-                status: existingTask.status,
-                priority: priority,
-                dueDate: hasDueDate ? dueDate : nil,
-                linkedGoalId: selectedGoalId,
-                linkedEventId: selectedEventId,
-                subtasks: subtasks,
-                createdAt: existingTask.createdAt,
-                updatedAt: Date(),
-                completedAt: existingTask.completedAt
-            )
+            task = existingTask
+            task.title = title
+            task.description = description.isEmpty ? nil : description
+            task.priority = priority
+            task.dueDate = hasDueDate ? dueDate : nil
+            task.linkedGoalId = selectedGoalId
+            task.linkedEventId = selectedEventId
+            task.subtasks = subtasks
+            task.updatedAt = Date()
+            task.progressAmount = hasProgressTracking ? progressAmount : nil
+            task.connectedKeyIndicatorId = hasProgressTracking ? connectedKeyIndicatorId : nil
         } else {
             task = Task(
                 title: title,
@@ -276,7 +315,9 @@ struct CreateTaskView: View {
                 priority: priority,
                 dueDate: hasDueDate ? dueDate : nil,
                 linkedGoalId: selectedGoalId,
-                linkedEventId: selectedEventId
+                linkedEventId: selectedEventId,
+                progressAmount: hasProgressTracking ? progressAmount : nil,
+                connectedKeyIndicatorId: hasProgressTracking ? connectedKeyIndicatorId : nil
             )
             task.subtasks = subtasks
         }

@@ -67,19 +67,21 @@ class AuthViewModel: ObservableObject {
                 }
                 
                 print("✅ AuthViewModel: User document exists for user: \(firebaseUser.uid)")
+                print("🔐 AuthViewModel: *** USING NEW PARSING CODE ***")
                 
                 do {
                     // Handle Firestore data conversion
-                    let user = try self?.parseUserFromFirestore(data: data, uid: firebaseUser.uid)
+                    guard let self = self else { return }
+                    let user = try self.parseUserFromFirestore(data: data, uid: firebaseUser.uid)
                     
-                    self?.currentUser = user
-                    self?.isAuthenticated = true
+                    self.currentUser = user
+                    self.isAuthenticated = true
                     
                     print("✅ AuthViewModel: User authenticated successfully")
-                    print("✅ AuthViewModel: User name: '\(user?.name ?? "nil")', email: '\(user?.email ?? "nil")'")
+                    print("✅ AuthViewModel: User name: '\(user.name)', email: '\(user.email)'")
                     
                     // Update last seen
-                    self?.updateLastSeen()
+                    self.updateLastSeen()
                 } catch {
                     print("❌ AuthViewModel: Failed to parse user data: \(error.localizedDescription)")
                     print("❌ AuthViewModel: Raw data: \(data)")
@@ -218,38 +220,50 @@ class AuthViewModel: ObservableObject {
     }
     
     private func parseUserFromFirestore(data: [String: Any], uid: String) throws -> User {
+        print("🔐 AuthViewModel: *** NEW PARSING METHOD CALLED ***")
         print("🔐 AuthViewModel: Parsing user data from Firestore...")
+        print("🔐 AuthViewModel: Raw Firestore data keys: \(data.keys)")
         
         // Extract basic fields with safe defaults
         let email = data["email"] as? String ?? ""
         let name = data["name"] as? String ?? ""
         let avatar = data["avatar"] as? String
         
+        print("🔐 AuthViewModel: Extracted - email: '\(email)', name: '\(name)', avatar: '\(avatar ?? "nil")')"
+        
         // Handle Firestore Timestamp for createdAt
         let createdAt: Date
         if let timestamp = data["createdAt"] as? Timestamp {
+            print("🔐 AuthViewModel: Found Firestore Timestamp for createdAt")
             createdAt = timestamp.dateValue()
         } else if let timeInterval = data["createdAt"] as? TimeInterval {
+            print("🔐 AuthViewModel: Found TimeInterval for createdAt: \(timeInterval)")
             createdAt = Date(timeIntervalSince1970: timeInterval)
         } else {
+            print("🔐 AuthViewModel: No valid createdAt found, using current date")
             createdAt = Date()
         }
         
         // Handle Firestore Timestamp for lastSeen
         let lastSeen: Date
         if let timestamp = data["lastSeen"] as? Timestamp {
+            print("🔐 AuthViewModel: Found Firestore Timestamp for lastSeen")
             lastSeen = timestamp.dateValue()
         } else if let timeInterval = data["lastSeen"] as? TimeInterval {
+            print("🔐 AuthViewModel: Found TimeInterval for lastSeen: \(timeInterval)")
             lastSeen = Date(timeIntervalSince1970: timeInterval)
         } else {
+            print("🔐 AuthViewModel: No valid lastSeen found, using current date")
             lastSeen = Date()
         }
         
         // Parse settings
         let settings: UserSettings
         if let settingsData = data["settings"] as? [String: Any] {
+            print("🔐 AuthViewModel: Found settings data, parsing...")
             settings = parseUserSettings(from: settingsData)
         } else {
+            print("🔐 AuthViewModel: No settings data found, using defaults")
             settings = UserSettings()
         }
         

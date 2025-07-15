@@ -58,12 +58,17 @@ struct ContentView: View {
 struct MainTabView: View {
     @State private var selectedTab: Tab = .dashboard
     @State private var showingCreateSheet = false
+    @State private var showingCreateTask = false
+    @State private var showingCreateEvent = false
+    @State private var showingCreateGoal = false
+    @State private var showingCreateKI = false
     
     enum Tab: String, CaseIterable {
         case dashboard = "Dashboard"
         case goals = "Goals"
         case calendar = "Calendar"
         case tasks = "Tasks"
+        case groups = "Groups"
         case notes = "Notes"
         case settings = "Settings"
         
@@ -73,6 +78,7 @@ struct MainTabView: View {
             case .goals: return "flag"
             case .calendar: return "calendar"
             case .tasks: return "checkmark.square"
+            case .groups: return "person.3"
             case .notes: return "doc.text"
             case .settings: return "gear"
             }
@@ -84,6 +90,7 @@ struct MainTabView: View {
             case .goals: return "flag.fill"
             case .calendar: return "calendar"
             case .tasks: return "checkmark.square.fill"
+            case .groups: return "person.3.fill"
             case .notes: return "doc.text.fill"
             case .settings: return "gear"
             }
@@ -120,6 +127,13 @@ struct MainTabView: View {
                 }
                 .tag(Tab.tasks)
             
+            GroupsView()
+                .tabItem {
+                    Image(systemName: selectedTab == .groups ? Tab.groups.selectedIcon : Tab.groups.icon)
+                    Text(Tab.groups.rawValue)
+                }
+                .tag(Tab.groups)
+            
             NotesView()
                 .tabItem {
                     Image(systemName: selectedTab == .notes ? Tab.notes.selectedIcon : Tab.notes.icon)
@@ -149,7 +163,25 @@ struct MainTabView: View {
             }
         )
         .sheet(isPresented: $showingCreateSheet) {
-            CreateItemSheet(selectedTab: selectedTab)
+            CreateItemSheet(
+                selectedTab: selectedTab,
+                showingCreateTask: $showingCreateTask,
+                showingCreateEvent: $showingCreateEvent,
+                showingCreateGoal: $showingCreateGoal,
+                showingCreateKI: $showingCreateKI
+            )
+        }
+        .sheet(isPresented: $showingCreateTask) {
+            CreateTaskView()
+        }
+        .sheet(isPresented: $showingCreateEvent) {
+            CreateEventView()
+        }
+        .sheet(isPresented: $showingCreateGoal) {
+            CreateGoalView()
+        }
+        .sheet(isPresented: $showingCreateKI) {
+            CreateKeyIndicatorView()
         }
     }
 }
@@ -175,7 +207,10 @@ struct FloatingActionButton: View {
 struct CreateItemSheet: View {
     let selectedTab: MainTabView.Tab
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedCreateOption: CreateOption = .task
+    @Binding var showingCreateTask: Bool
+    @Binding var showingCreateEvent: Bool
+    @Binding var showingCreateGoal: Bool
+    @Binding var showingCreateKI: Bool
     
     enum CreateOption: String, CaseIterable {
         case task = "Task"
@@ -206,9 +241,7 @@ struct CreateItemSheet: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 20) {
                     ForEach(CreateOption.allCases, id: \.self) { option in
                         CreateOptionCard(option: option) {
-                            selectedCreateOption = option
-                            // Navigate to appropriate creation view
-                            dismiss()
+                            handleCreateOption(option)
                         }
                     }
                 }
@@ -223,6 +256,25 @@ struct CreateItemSheet: View {
                         dismiss()
                     }
                 }
+            }
+        }
+    }
+    
+    private func handleCreateOption(_ option: CreateOption) {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            switch option {
+            case .task:
+                showingCreateTask = true
+            case .event:
+                showingCreateEvent = true
+            case .goal:
+                showingCreateGoal = true
+            case .note:
+                // Handle note creation if needed
+                break
+            case .keyIndicator:
+                showingCreateKI = true
             }
         }
     }

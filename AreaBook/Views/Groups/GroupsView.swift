@@ -15,7 +15,7 @@ struct GroupsView: View {
                     GroupsHeaderCard(
                         totalGroups: collaborationManager.currentUserGroups.count,
                         totalChallenges: collaborationManager.groupChallenges.count,
-                        unreadNotifications: 0 // TODO: Implement notification count
+                        unreadNotifications: collaborationManager.getUnreadNotificationCount()
                     )
                     
                     // My Groups Section

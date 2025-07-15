@@ -204,6 +204,19 @@ class AuthViewModel: ObservableObject {
         ])
     }
     
+    func deleteAccount() async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user logged in"])
+        }
+        
+        try await user.delete()
+        
+        await MainActor.run {
+            currentUser = nil
+            isAuthenticated = false
+        }
+    }
+    
     private func showError(_ message: String, isError: Bool = true) {
         errorMessage = message
         showError = true

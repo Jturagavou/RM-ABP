@@ -113,11 +113,34 @@ struct SettingsView: View {
             }
             .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
                 Button("Delete", role: .destructive) {
-                    // TODO: Implement account deletion
+                    deleteAccount()
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
                 Text("This action cannot be undone. All your data will be permanently deleted.")
+            }
+        }
+    }
+    
+    private func deleteAccount() {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        
+        Task {
+            do {
+                // Delete all user data from Firestore
+                try await dataManager.deleteAllUserData(userId: userId)
+                
+                // Delete the user account from Firebase Auth
+                try await authViewModel.deleteAccount()
+                
+                await MainActor.run {
+                    // User will be automatically signed out
+                }
+            } catch {
+                await MainActor.run {
+                    // Handle error - you might want to show an alert
+                    print("Failed to delete account: \(error)")
+                }
             }
         }
     }
@@ -311,23 +334,61 @@ struct DataSyncView: View {
 }
 
 struct ExportDataView: View {
+    @EnvironmentObject var dataManager: DataManager
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @StateObject private var exportService = DataExportService.shared
+    
+    @State private var isExporting = false
+    @State private var isImporting = false
+    @State private var exportMessage = ""
+    @State private var shareItems: [Any] = []
+    @State private var showingShareSheet = false
+    @State private var showingImportPicker = false
+    @State private var exportSummary: ExportSummary?
+    
     var body: some View {
         List {
             Section("Export Options") {
                 Button("Export All Data") {
-                    // TODO: Implement data export
+                    exportData(type: .all)
                 }
+                .disabled(isExporting)
                 
                 Button("Export Goals Only") {
-                    // TODO: Implement goals export
+                    exportData(type: .goals)
                 }
+                .disabled(isExporting)
                 
                 Button("Export Tasks Only") {
-                    // TODO: Implement tasks export
+                    exportData(type: .tasks)
                 }
+                .disabled(isExporting)
                 
                 Button("Export Notes Only") {
-                    // TODO: Implement notes export
+                    exportData(type: .notes)
+                }
+                .disabled(isExporting)
+            }
+            
+            Section("Import Options") {
+                Button("Import from JSON") {
+                    showingImportPicker = true
+                }
+                .disabled(isImporting)
+            }
+            
+            if let summary = exportSummary {
+                Section("Last Export Summary") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Export Date: \(summary.exportDate, style: .date)")
+                        Text("Total Items: \(summary.totalItems)")
+                        Text("Goals: \(summary.goalCount)")
+                        Text("Tasks: \(summary.taskCount)")
+                        Text("Notes: \(summary.noteCount)")
+                        Text("Key Indicators: \(summary.keyIndicatorCount)")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 }
             }
             
@@ -336,26 +397,391 @@ struct ExportDataView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+            
+            if !exportMessage.isEmpty {
+                Section("Status") {
+                    Text(exportMessage)
+                        .font(.caption)
+                        .foregroundColor(exportMessage.contains("failed") ? .red : .green)
+                }
+            }
         }
         .navigationTitle("Export Data")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            if isExporting || isImporting {
+                ProgressView(isExporting ? "Exporting..." : "Importing...")
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(8)
+                    .shadow(radius: 4)
+            }
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            ShareSheet(items: shareItems)
+        }
+        .fileImporter(
+            isPresented: $showingImportPicker,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImport(result: result)
+        }
     }
+    
+    enum ExportType {
+        case all, goals, tasks, notes
+    }
+    
+    private func exportData(type: ExportType) {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        
+        isExporting = true
+        exportMessage = ""
+        
+        Task {
+            do {
+                let exportData: ExportData
+                
+                switch type {
+                case .all:
+                    exportData = try await exportService.exportAllData(from: dataManager, userId: userId)
+                case .goals:
+                    exportData = ExportData(
+                        exportDate: Date(),
+                        userId: userId,
+                        keyIndicators: [],
+                        goals: dataManager.goals,
+                        events: [],
+                        tasks: [],
+                        notes: [],
+                        accountabilityGroups: [],
+                        userPreferences: UserPreferences.current
+                    )
+                case .tasks:
+                    exportData = ExportData(
+                        exportDate: Date(),
+                        userId: userId,
+                        keyIndicators: [],
+                        goals: [],
+                        events: [],
+                        tasks: dataManager.tasks,
+                        notes: [],
+                        accountabilityGroups: [],
+                        userPreferences: UserPreferences.current
+                    )
+                case .notes:
+                    exportData = ExportData(
+                        exportDate: Date(),
+                        userId: userId,
+                        keyIndicators: [],
+                        goals: [],
+                        events: [],
+                        tasks: [],
+                        notes: dataManager.notes,
+                        accountabilityGroups: [],
+                        userPreferences: UserPreferences.current
+                    )
+                }
+                
+                exportSummary = exportData.summary
+                
+                let jsonData = try exportService.exportToJSON(data: exportData)
+                let fileName = "AreaBook_\(type)_Export_\(Date().formatted(.iso8601.day().month().year())).json"
+                let url = try saveExportedData(jsonData, filename: fileName)
+                
+                await MainActor.run {
+                    shareItems = [url]
+                    exportMessage = "Export completed successfully!"
+                    showingShareSheet = true
+                }
+                
+            } catch {
+                await MainActor.run {
+                    exportMessage = "Export failed: \(error.localizedDescription)"
+                }
+            }
+            
+            await MainActor.run {
+                isExporting = false
+            }
+        }
+    }
+    
+    private func handleImport(result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            
+            isImporting = true
+            exportMessage = ""
+            
+            Task {
+                do {
+                    let data = try Data(contentsOf: url)
+                    let importData = try exportService.importFromJSON(data: data)
+                    
+                    guard let userId = authViewModel.currentUser?.id else { return }
+                    try await exportService.importData(importData, to: dataManager, userId: userId)
+                    
+                    await MainActor.run {
+                        exportMessage = "Import completed successfully!"
+                    }
+                    
+                } catch {
+                    await MainActor.run {
+                        exportMessage = "Import failed: \(error.localizedDescription)"
+                    }
+                }
+                
+                await MainActor.run {
+                    isImporting = false
+                }
+            }
+            
+        case .failure(let error):
+            exportMessage = "Import failed: \(error.localizedDescription)"
+        }
+    }
+    
+    private func saveExportedData(_ data: Data, filename: String) throws -> URL {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documentsPath.appendingPathComponent(filename)
+        try data.write(to: fileURL)
+        return fileURL
+    }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct HelpView: View {
     var body: some View {
         List {
             Section("Getting Started") {
-                NavigationLink("How to use AreaBook", destination: Text("Help content"))
-                NavigationLink("Creating your first goal", destination: Text("Help content"))
-                NavigationLink("Setting up Key Indicators", destination: Text("Help content"))
+                NavigationLink("How to use AreaBook", destination: HelpContentView(
+                    title: "How to use AreaBook",
+                    content: """
+                    Welcome to AreaBook! This app helps you track your life goals and habits.
+                    
+                    **Getting Started:**
+                    1. Create Key Indicators (KIs) to track weekly habits
+                    2. Set up Goals and link them to your KIs
+                    3. Create Tasks and Events to work towards your goals
+                    4. Use Notes to capture thoughts and ideas
+                    5. Join Groups to share progress with others
+                    
+                    **Navigation:**
+                    - Dashboard: Overview of your progress
+                    - Goals: Create and manage your goals
+                    - Calendar: Schedule events and activities
+                    - Tasks: Manage your to-do items
+                    - Notes: Capture thoughts and ideas
+                    - Groups: Connect with others
+                    """
+                ))
+                NavigationLink("Creating your first goal", destination: HelpContentView(
+                    title: "Creating Your First Goal",
+                    content: """
+                    Goals are the foundation of your progress tracking in AreaBook.
+                    
+                    **Steps to Create a Goal:**
+                    1. Go to the Goals tab
+                    2. Tap the + button to create a new goal
+                    3. Enter a clear, specific title
+                    4. Write a detailed description
+                    5. Set a target date (optional)
+                    6. Link to relevant Key Indicators
+                    7. Add sticky notes for brainstorming
+                    8. Choose a category if you have dividers set up
+                    
+                    **Tips:**
+                    - Make goals specific and measurable
+                    - Break large goals into smaller tasks
+                    - Use sticky notes to capture ideas
+                    - Review progress regularly
+                    """
+                ))
+                NavigationLink("Setting up Key Indicators", destination: HelpContentView(
+                    title: "Setting up Key Indicators",
+                    content: """
+                    Key Indicators (KIs) are weekly habits that help you achieve your goals.
+                    
+                    **Creating a KI:**
+                    1. Go to Key Indicators from the dashboard
+                    2. Choose from templates or create custom
+                    3. Set a weekly target (e.g., 7 for daily habits)
+                    4. Choose a unit (sessions, hours, pages, etc.)
+                    5. Pick a color for visual organization
+                    
+                    **Common KI Examples:**
+                    - Exercise: 5 sessions per week
+                    - Reading: 7 hours per week
+                    - Water: 56 glasses per week (8 daily)
+                    - Meditation: 7 sessions per week
+                    
+                    **Updating Progress:**
+                    - Use +1 and +5 buttons for quick updates
+                    - Progress resets weekly
+                    - Link tasks and events to auto-update KIs
+                    """
+                ))
             }
             
             Section("Features") {
-                NavigationLink("Managing Tasks", destination: Text("Help content"))
-                NavigationLink("Calendar & Events", destination: Text("Help content"))
-                NavigationLink("Note Taking", destination: Text("Help content"))
-                NavigationLink("Accountability Groups", destination: Text("Help content"))
+                NavigationLink("Managing Tasks", destination: HelpContentView(
+                    title: "Managing Tasks",
+                    content: """
+                    Tasks help you break down goals into actionable steps.
+                    
+                    **Creating Tasks:**
+                    1. Go to Tasks tab or use the + button
+                    2. Enter a clear task title
+                    3. Set priority (High, Medium, Low)
+                    4. Add due date if needed
+                    5. Link to goals and Key Indicators
+                    6. Add subtasks for complex work
+                    
+                    **Task Features:**
+                    - Priority color coding
+                    - Due date tracking
+                    - Subtask management
+                    - Time estimation
+                    - Goal and KI linking
+                    
+                    **Completing Tasks:**
+                    - Mark tasks as complete
+                    - Linked KIs automatically update
+                    - Goal progress increases
+                    - Timeline entries are created
+                    """
+                ))
+                NavigationLink("Calendar & Events", destination: HelpContentView(
+                    title: "Calendar & Events",
+                    content: """
+                    Use the calendar to schedule activities and track your time.
+                    
+                    **Creating Events:**
+                    1. Go to Calendar tab
+                    2. Hold and drag on a date to create quickly
+                    3. Or use the + button for detailed creation
+                    4. Set start and end times
+                    5. Choose a category
+                    6. Link to goals and KIs
+                    
+                    **Recurring Events:**
+                    - Daily, weekly, monthly, yearly patterns
+                    - Custom day-of-week selection
+                    - End date options
+                    - Automatic generation
+                    
+                    **Event Categories:**
+                    - Personal, Work, Health, Social, Learning
+                    - Color-coded for easy identification
+                    - Customizable categories
+                    """
+                ))
+                NavigationLink("Note Taking", destination: HelpContentView(
+                    title: "Note Taking",
+                    content: """
+                    Capture thoughts, ideas, and insights with the Notes feature.
+                    
+                    **Creating Notes:**
+                    1. Go to Notes tab
+                    2. Tap "New Note"
+                    3. Add title and content
+                    4. Use markdown for formatting
+                    5. Add tags for organization
+                    6. Link to goals, tasks, and other notes
+                    
+                    **Note Features:**
+                    - Markdown support for rich text
+                    - Tag system for organization
+                    - Linking to goals and tasks
+                    - Bi-directional note linking
+                    - Search functionality
+                    - Preview mode
+                    
+                    **Organization Tips:**
+                    - Use descriptive titles
+                    - Add relevant tags
+                    - Link related content
+                    - Review and update regularly
+                    """
+                ))
+                NavigationLink("Accountability Groups", destination: HelpContentView(
+                    title: "Accountability Groups",
+                    content: """
+                    Connect with others to share progress and stay motivated.
+                    
+                    **Creating Groups:**
+                    1. Go to Groups tab
+                    2. Tap "Create Group"
+                    3. Enter group name and description
+                    4. Configure privacy settings
+                    5. Invite members using invitation codes
+                    
+                    **Group Features:**
+                    - Progress sharing
+                    - Group challenges
+                    - Activity feeds
+                    - Member management
+                    - Role-based permissions
+                    
+                    **Joining Groups:**
+                    1. Get invitation code from group admin
+                    2. Go to Groups tab
+                    3. Tap "Join Group"
+                    4. Enter invitation code
+                    5. Start participating!
+                    
+                    **Group Roles:**
+                    - Admin: Full management access
+                    - Moderator: Can manage members
+                    - Member: Can participate and share
+                    """
+                ))
+            }
+            
+            Section("Tips & Tricks") {
+                NavigationLink("Widgets & Siri", destination: HelpContentView(
+                    title: "Widgets & Siri",
+                    content: """
+                    Use widgets and Siri shortcuts for quick access to your data.
+                    
+                    **Home Screen Widgets:**
+                    1. Long press on home screen
+                    2. Tap the + button
+                    3. Search for "AreaBook"
+                    4. Choose widget size
+                    5. Add to home screen
+                    
+                    **Widget Sizes:**
+                    - Small: KI progress + counts
+                    - Medium: KI progress + today's items
+                    - Large: Full dashboard view
+                    
+                    **Siri Shortcuts:**
+                    - "Add task to AreaBook"
+                    - "Log task success"
+                    - "Update my progress"
+                    - "What's my schedule today"
+                    - "Review my key indicators"
+                    
+                    **Setting up Siri:**
+                    1. Go to Settings > Siri & Search
+                    2. Enable "Listen for Hey Siri"
+                    3. Use the shortcuts above
+                    4. Siri will learn your patterns
+                    """
+                ))
             }
         }
         .navigationTitle("Help & FAQ")
@@ -363,9 +789,32 @@ struct HelpView: View {
     }
 }
 
+struct HelpContentView: View {
+    let title: String
+    let content: String
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(content)
+                    .font(.body)
+                    .lineSpacing(4)
+            }
+            .padding()
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 struct FeedbackView: View {
+    @EnvironmentObject var authViewModel: AuthViewModel
     @State private var feedbackText = ""
     @State private var feedbackType: FeedbackType = .general
+    @State private var isSending = false
+    @State private var showingSuccessAlert = false
+    @State private var showingErrorAlert = false
+    @State private var errorMessage = ""
     
     enum FeedbackType: String, CaseIterable {
         case general = "General"
@@ -391,20 +840,71 @@ struct FeedbackView: View {
                     .cornerRadius(8)
                 
                 Button("Send Feedback") {
-                    // TODO: Implement feedback sending
+                    sendFeedback()
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(Color.blue)
                 .foregroundColor(.white)
                 .cornerRadius(10)
-                .disabled(feedbackText.isEmpty)
+                .disabled(feedbackText.isEmpty || isSending)
+                
+                if isSending {
+                    ProgressView("Sending feedback...")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
                 
                 Spacer()
             }
             .padding()
             .navigationTitle("Send Feedback")
             .navigationBarTitleDisplayMode(.inline)
+            .alert("Feedback Sent", isPresented: $showingSuccessAlert) {
+                Button("OK") { }
+            } message: {
+                Text("Thank you for your feedback! We'll review it and get back to you if needed.")
+            }
+            .alert("Error", isPresented: $showingErrorAlert) {
+                Button("OK") { }
+            } message: {
+                Text(errorMessage)
+            }
+        }
+    }
+    
+    private func sendFeedback() {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        
+        isSending = true
+        
+        Task {
+            do {
+                let feedback = [
+                    "userId": userId,
+                    "userEmail": authViewModel.currentUser?.email ?? "unknown",
+                    "type": feedbackType.rawValue,
+                    "message": feedbackText,
+                    "timestamp": Date().timeIntervalSince1970,
+                    "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+                ]
+                
+                let db = Firestore.firestore()
+                try await db.collection("feedback").addDocument(data: feedback)
+                
+                await MainActor.run {
+                    isSending = false
+                    feedbackText = ""
+                    showingSuccessAlert = true
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isSending = false
+                    errorMessage = "Failed to send feedback: \(error.localizedDescription)"
+                    showingErrorAlert = true
+                }
+            }
         }
     }
 }

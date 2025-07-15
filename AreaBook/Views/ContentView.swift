@@ -8,11 +8,12 @@ struct ContentView: View {
         Group {
             if authViewModel.isAuthenticated {
                 MainTabView()
-                    .onAppear {
-                        if let userId = authViewModel.currentUser?.id {
-                            dataManager.setupListeners(for: userId)
-                        }
-                    }
+                            .onAppear {
+            if let userId = authViewModel.currentUser?.id {
+                dataManager.setupListeners(for: userId)
+                CollaborationManager.shared.setupListeners(for: userId)
+            }
+        }
                     .onDisappear {
                         dataManager.removeListeners()
                     }

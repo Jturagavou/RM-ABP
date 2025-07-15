@@ -4,6 +4,8 @@ struct NotesView: View {
     @EnvironmentObject var dataManager: DataManager
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var searchText = ""
+    @State private var showingCreateNote = false
+    @State private var selectedNoteForEdit: Note?
     
     var body: some View {
         NavigationView {
@@ -34,7 +36,9 @@ struct NotesView: View {
                             .padding(.top, 100)
                         } else {
                             ForEach(filteredNotes) { note in
-                                NoteCard(note: note)
+                                NoteCard(note: note) {
+                                    selectedNoteForEdit = note
+                                }
                             }
                         }
                     }
@@ -43,6 +47,20 @@ struct NotesView: View {
             }
             .navigationTitle("Notes")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("New Note") {
+                        showingCreateNote = true
+                    }
+                    .foregroundColor(.blue)
+                }
+            }
+            .sheet(isPresented: $showingCreateNote) {
+                CreateNoteView()
+            }
+            .sheet(item: $selectedNoteForEdit) { note in
+                CreateNoteView(noteToEdit: note)
+            }
         }
     }
     
@@ -89,9 +107,11 @@ struct SearchBar: View {
 
 struct NoteCard: View {
     let note: Note
+    let onTap: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(note.title.isEmpty ? "Untitled Note" : note.title)
                     .font(.headline)
@@ -146,11 +166,13 @@ struct NoteCard: View {
                     Spacer()
                 }
             }
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

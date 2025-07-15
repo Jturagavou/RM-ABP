@@ -690,6 +690,61 @@ class DataManager: ObservableObject {
         updateWidgetData(keyIndicators: keyIndicators, tasks: tasks, events: events)
     }
     
+    // MARK: - Progress Update Helpers
+    func updateGoalProgress(goalId: String, progressIncrease: Int, userId: String) {
+        if let goalIndex = goals.firstIndex(where: { $0.id == goalId }) {
+            var updatedGoal = goals[goalIndex]
+            let oldProgress = updatedGoal.progress
+            updatedGoal.progress = min(100, updatedGoal.progress + progressIncrease)
+            updatedGoal.updatedAt = Date()
+            
+            // Log progress update to timeline
+            logProgressUpdate(goalId: goalId, oldProgress: oldProgress, newProgress: updatedGoal.progress, userId: userId)
+            
+            updateGoal(updatedGoal, userId: userId)
+        }
+    }
+    
+    func updateKeyIndicatorProgress(kiId: String, increment: Int, userId: String) {
+        if let kiIndex = keyIndicators.firstIndex(where: { $0.id == kiId }) {
+            var updatedKI = keyIndicators[kiIndex]
+            updatedKI.currentWeekProgress += increment
+            updatedKI.updatedAt = Date()
+            updateKeyIndicator(updatedKI, userId: userId)
+        }
+    }
+    
+    // MARK: - Account Deletion
+    func deleteAllUserData(userId: String) async throws {
+        let batch = db.batch()
+        
+        // Delete all user subcollections
+        let collections = ["keyIndicators", "goals", "events", "tasks", "notes", "goalDividers"]
+        
+        for collection in collections {
+            let snapshot = try await db.collection("users").document(userId).collection(collection).getDocuments()
+            for document in snapshot.documents {
+                batch.deleteDocument(document.reference)
+            }
+        }
+        
+        // Delete the user document
+        batch.deleteDocument(db.collection("users").document(userId))
+        
+        // Commit the batch
+        try await batch.commit()
+        
+        // Clear local data
+        await MainActor.run {
+            keyIndicators.removeAll()
+            goals.removeAll()
+            events.removeAll()
+            tasks.removeAll()
+            notes.removeAll()
+            goalDividers.removeAll()
+        }
+    }
+    
     private func showError(_ message: String) {
         DispatchQueue.main.async {
             self.errorMessage = message

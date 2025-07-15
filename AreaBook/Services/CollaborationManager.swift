@@ -10,11 +10,98 @@ class CollaborationManager: ObservableObject {
     @Published var groupInvitations: [GroupInvitation] = []
     @Published var sharedProgress: [String: [ProgressShare]] = [:] // groupId: [progress]
     @Published var groupChallenges: [GroupChallenge] = []
+    @Published var groupNotifications: [GroupNotification] = []
     
     private var db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     
     private init() {}
+    
+    // MARK: - Notification Management
+    
+    func getUnreadNotificationCount() -> Int {
+        return groupNotifications.filter { !$0.isRead }.count
+    }
+    
+    func markNotificationAsRead(notificationId: String) async throws {
+        try await db.collection("groupNotifications").document(notificationId).updateData([
+            "isRead": true
+        ])
+    }
+    
+    func createNotification(
+        groupId: String,
+        userId: String,
+        type: GroupNotification.NotificationType,
+        title: String,
+        message: String
+    ) async throws {
+        let notification = GroupNotification(
+            groupId: groupId,
+            userId: userId,
+            type: type,
+            title: title,
+            message: message
+        )
+        
+        try await db.collection("groupNotifications").document(notification.id).setData([
+            "id": notification.id,
+            "groupId": notification.groupId,
+            "userId": notification.userId,
+            "type": notification.type.rawValue,
+            "title": notification.title,
+            "message": notification.message,
+            "isRead": notification.isRead,
+            "createdAt": notification.createdAt
+        ])
+    }
+    
+    // MARK: - Listeners
+    
+    func setupListeners(for userId: String) {
+        clearListeners()
+        
+        // Listen for groups where user is a member
+        let groupsListener = db.collection("groups")
+            .whereField("members", arrayContains: userId)
+            .addSnapshotListener { [weak self] snapshot, error in
+                if let error = error {
+                    print("Error listening to groups: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else { return }
+                
+                self?.currentUserGroups = documents.compactMap { document in
+                    try? document.data(as: AccountabilityGroup.self)
+                }
+            }
+        
+        // Listen for notifications for this user
+        let notificationsListener = db.collection("groupNotifications")
+            .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                if let error = error {
+                    print("Error listening to notifications: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else { return }
+                
+                self?.groupNotifications = documents.compactMap { document in
+                    try? document.data(as: GroupNotification.self)
+                }
+            }
+        
+        listeners.append(groupsListener)
+        listeners.append(notificationsListener)
+    }
+    
+    func clearListeners() {
+        listeners.forEach { $0.remove() }
+        listeners.removeAll()
+    }
     
     // MARK: - Group Management
     

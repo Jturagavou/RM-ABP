@@ -1,224 +1,156 @@
 import Foundation
-import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Data Export Service
-class DataExportService: ObservableObject {
+class DataExportService {
     static let shared = DataExportService()
     
     private init() {}
     
-    // MARK: - Export Methods
-    func exportAllData(from dataManager: DataManager, userId: String) async throws -> ExportData {
+    // MARK: - Export Functions
+    
+    func exportAllData(for userId: String, dataManager: DataManager) throws -> URL {
         let exportData = ExportData(
             exportDate: Date(),
-            userId: userId,
+            version: "1.0",
             keyIndicators: dataManager.keyIndicators,
             goals: dataManager.goals,
-            events: dataManager.events,
             tasks: dataManager.tasks,
-            notes: dataManager.notes,
-            accountabilityGroups: dataManager.accountabilityGroups,
-            userPreferences: UserPreferences.current
+            events: dataManager.events,
+            notes: dataManager.notes
         )
         
-        return exportData
+        let jsonData = try JSONEncoder().encode(exportData)
+        return try saveToFile(data: jsonData, filename: "AreaBook_Export_\(Date().exportFilename).json")
     }
     
-    func exportToJSON(data: ExportData) throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = .prettyPrinted
-        return try encoder.encode(data)
+    func exportGoals(goals: [Goal]) throws -> URL {
+        let jsonData = try JSONEncoder().encode(goals)
+        return try saveToFile(data: jsonData, filename: "Goals_Export_\(Date().exportFilename).json")
     }
     
-    func exportToCSV(data: ExportData) throws -> [String: Data] {
-        var csvFiles: [String: Data] = [:]
-        
-        // Key Indicators CSV
-        csvFiles["key_indicators.csv"] = try createKeyIndicatorsCSV(data.keyIndicators)
-        
-        // Goals CSV
-        csvFiles["goals.csv"] = try createGoalsCSV(data.goals)
-        
-        // Events CSV
-        csvFiles["events.csv"] = try createEventsCSV(data.events)
-        
-        // Tasks CSV
-        csvFiles["tasks.csv"] = try createTasksCSV(data.tasks)
-        
-        // Notes CSV
-        csvFiles["notes.csv"] = try createNotesCSV(data.notes)
-        
-        return csvFiles
+    func exportTasks(tasks: [Task]) throws -> URL {
+        let jsonData = try JSONEncoder().encode(tasks)
+        return try saveToFile(data: jsonData, filename: "Tasks_Export_\(Date().exportFilename).json")
     }
     
-    // MARK: - Import Methods
-    func importFromJSON(data: Data) throws -> ExportData {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(ExportData.self, from: data)
+    func exportNotes(notes: [Note]) throws -> URL {
+        let jsonData = try JSONEncoder().encode(notes)
+        return try saveToFile(data: jsonData, filename: "Notes_Export_\(Date().exportFilename).json")
     }
     
-    func importData(_ importData: ExportData, to dataManager: DataManager, userId: String) async throws {
-        // Import Key Indicators
-        for ki in importData.keyIndicators {
-            dataManager.createKeyIndicator(ki, userId: userId)
-        }
-        
-        // Import Goals
-        for goal in importData.goals {
-            dataManager.createGoal(goal, userId: userId)
-        }
-        
-        // Import Events
-        for event in importData.events {
-            dataManager.createEvent(event, userId: userId)
-        }
-        
-        // Import Tasks
-        for task in importData.tasks {
-            dataManager.createTask(task, userId: userId)
-        }
-        
-        // Import Notes
-        for note in importData.notes {
-            dataManager.createNote(note, userId: userId)
-        }
-        
-        // Import Accountability Groups
-        for group in importData.accountabilityGroups {
-            dataManager.createAccountabilityGroup(group, userId: userId)
-        }
-        
-        // Import User Preferences
-        UserPreferences.current = importData.userPreferences
+    func exportKeyIndicators(keyIndicators: [KeyIndicator]) throws -> URL {
+        let jsonData = try JSONEncoder().encode(keyIndicators)
+        return try saveToFile(data: jsonData, filename: "KeyIndicators_Export_\(Date().exportFilename).json")
     }
     
-    // MARK: - CSV Creation Methods
-    private func createKeyIndicatorsCSV(_ keyIndicators: [KeyIndicator]) throws -> Data {
-        var csvContent = "Name,Weekly Target,Current Progress,Unit,Color,Created Date,Updated Date\n"
-        
-        for ki in keyIndicators {
-            let row = "\"\(ki.name)\",\(ki.weeklyTarget),\(ki.currentWeekProgress),\"\(ki.unit)\",\"\(ki.color)\",\(ki.createdAt.iso8601String),\(ki.updatedAt.iso8601String)\n"
-            csvContent += row
-        }
-        
-        return csvContent.data(using: .utf8) ?? Data()
-    }
+    // MARK: - Export to CSV
     
-    private func createGoalsCSV(_ goals: [Goal]) throws -> Data {
-        var csvContent = "Title,Description,Status,Progress,Target Date,Created Date,Updated Date\n"
-        
-        for goal in goals {
-            let targetDateString = goal.targetDate?.iso8601String ?? ""
-            let row = "\"\(goal.title)\",\"\(goal.description)\",\"\(goal.status.rawValue)\",\(goal.progress),\"\(targetDateString)\",\(goal.createdAt.iso8601String),\(goal.updatedAt.iso8601String)\n"
-            csvContent += row
-        }
-        
-        return csvContent.data(using: .utf8) ?? Data()
-    }
-    
-    private func createEventsCSV(_ events: [CalendarEvent]) throws -> Data {
-        var csvContent = "Title,Description,Category,Start Time,End Time,Is Recurring,Created Date,Updated Date\n"
-        
-        for event in events {
-            let row = "\"\(event.title)\",\"\(event.description)\",\"\(event.category)\",\(event.startTime.iso8601String),\(event.endTime.iso8601String),\(event.isRecurring),\(event.createdAt.iso8601String),\(event.updatedAt.iso8601String)\n"
-            csvContent += row
-        }
-        
-        return csvContent.data(using: .utf8) ?? Data()
-    }
-    
-    private func createTasksCSV(_ tasks: [Task]) throws -> Data {
-        var csvContent = "Title,Description,Status,Priority,Due Date,Created Date,Updated Date,Completed Date\n"
+    func exportTasksToCSV(tasks: [Task]) throws -> URL {
+        var csvString = "Title,Description,Status,Priority,Due Date,Completed At,Created At\n"
         
         for task in tasks {
             let description = task.description ?? ""
-            let dueDateString = task.dueDate?.iso8601String ?? ""
-            let completedDateString = task.completedAt?.iso8601String ?? ""
-            let row = "\"\(task.title)\",\"\(description)\",\"\(task.status.rawValue)\",\"\(task.priority.rawValue)\",\"\(dueDateString)\",\(task.createdAt.iso8601String),\(task.updatedAt.iso8601String),\"\(completedDateString)\"\n"
-            csvContent += row
+            let dueDate = task.dueDate?.formatted() ?? ""
+            let completedAt = task.completedAt?.formatted() ?? ""
+            let createdAt = task.createdAt.formatted()
+            
+            csvString += "\"\(task.title)\",\"\(description)\",\"\(task.status.rawValue)\",\"\(task.priority.rawValue)\",\"\(dueDate)\",\"\(completedAt)\",\"\(createdAt)\"\n"
         }
         
-        return csvContent.data(using: .utf8) ?? Data()
+        let data = csvString.data(using: .utf8)!
+        return try saveToFile(data: data, filename: "Tasks_Export_\(Date().exportFilename).csv")
     }
     
-    private func createNotesCSV(_ notes: [Note]) throws -> Data {
-        var csvContent = "Title,Content,Tags,Created Date,Updated Date\n"
+    func exportGoalsToCSV(goals: [Goal]) throws -> URL {
+        var csvString = "Title,Description,Progress,Status,Target Date,Created At\n"
         
-        for note in notes {
-            let tags = note.tags.joined(separator: ";")
-            let content = note.content.replacingOccurrences(of: "\n", with: "\\n")
-            let row = "\"\(note.title)\",\"\(content)\",\"\(tags)\",\(note.createdAt.iso8601String),\(note.updatedAt.iso8601String)\n"
-            csvContent += row
+        for goal in goals {
+            let targetDate = goal.targetDate?.formatted() ?? ""
+            let createdAt = goal.createdAt.formatted()
+            
+            csvString += "\"\(goal.title)\",\"\(goal.description)\",\"\(goal.progress)%\",\"\(goal.status.rawValue)\",\"\(targetDate)\",\"\(createdAt)\"\n"
         }
         
-        return csvContent.data(using: .utf8) ?? Data()
+        let data = csvString.data(using: .utf8)!
+        return try saveToFile(data: data, filename: "Goals_Export_\(Date().exportFilename).csv")
     }
     
-    // MARK: - File Management
-    func saveExportedData(_ data: Data, filename: String) throws -> URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileURL = documentsPath.appendingPathComponent(filename)
+    // MARK: - Import Functions
+    
+    func importData(from url: URL) throws -> ExportData {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        return try decoder.decode(ExportData.self, from: data)
+    }
+    
+    func importGoals(from url: URL) throws -> [Goal] {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        return try decoder.decode([Goal].self, from: data)
+    }
+    
+    func importTasks(from url: URL) throws -> [Task] {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        return try decoder.decode([Task].self, from: data)
+    }
+    
+    func importNotes(from url: URL) throws -> [Note] {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        return try decoder.decode([Note].self, from: data)
+    }
+    
+    // MARK: - Export Summary
+    
+    func generateExportSummary(dataManager: DataManager) -> ExportSummary {
+        return ExportSummary(
+            totalKeyIndicators: dataManager.keyIndicators.count,
+            totalGoals: dataManager.goals.count,
+            activeGoals: dataManager.goals.filter { $0.status == .active }.count,
+            completedGoals: dataManager.goals.filter { $0.status == .completed }.count,
+            totalTasks: dataManager.tasks.count,
+            completedTasks: dataManager.tasks.filter { $0.status == .completed }.count,
+            totalEvents: dataManager.events.count,
+            totalNotes: dataManager.notes.count,
+            exportDate: Date()
+        )
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func saveToFile(data: Data, filename: String) throws -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+        let fileURL = tempDir.appendingPathComponent(filename)
         
         try data.write(to: fileURL)
         return fileURL
     }
-    
-    func saveExportedCSVs(_ csvFiles: [String: Data]) throws -> URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let timestamp = Date().formatted(.iso8601.day().month().year())
-        let folderName = "AreaBook_Export_\(timestamp)"
-        let folderURL = documentsPath.appendingPathComponent(folderName)
-        
-        try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
-        
-        for (filename, data) in csvFiles {
-            let fileURL = folderURL.appendingPathComponent(filename)
-            try data.write(to: fileURL)
-        }
-        
-        return folderURL
-    }
 }
 
-// MARK: - Export Data Structure
+// MARK: - Export Data Models
+
 struct ExportData: Codable {
     let exportDate: Date
-    let userId: String
+    let version: String
     let keyIndicators: [KeyIndicator]
     let goals: [Goal]
-    let events: [CalendarEvent]
     let tasks: [Task]
+    let events: [CalendarEvent]
     let notes: [Note]
-    let accountabilityGroups: [AccountabilityGroup]
-    let userPreferences: UserPreferences
-    
-    var summary: ExportSummary {
-        ExportSummary(
-            exportDate: exportDate,
-            keyIndicatorCount: keyIndicators.count,
-            goalCount: goals.count,
-            eventCount: events.count,
-            taskCount: tasks.count,
-            noteCount: notes.count,
-            groupCount: accountabilityGroups.count
-        )
-    }
 }
 
 struct ExportSummary {
+    let totalKeyIndicators: Int
+    let totalGoals: Int
+    let activeGoals: Int
+    let completedGoals: Int
+    let totalTasks: Int
+    let completedTasks: Int
+    let totalEvents: Int
+    let totalNotes: Int
     let exportDate: Date
-    let keyIndicatorCount: Int
-    let goalCount: Int
-    let eventCount: Int
-    let taskCount: Int
-    let noteCount: Int
-    let groupCount: Int
-    
-    var totalItems: Int {
-        keyIndicatorCount + goalCount + eventCount + taskCount + noteCount + groupCount
-    }
 }
 
 // MARK: - User Preferences
@@ -397,26 +329,26 @@ struct DataExportImportView: View {
             exportMessage = ""
             
             do {
-                let exportData = try await exportService.exportAllData(from: dataManager, userId: userId)
+                let exportData = try await exportService.exportAllData(from: userId, dataManager: dataManager)
                 exportSummary = exportData.summary
                 
                 switch format {
                 case .json:
                     let jsonData = try exportService.exportToJSON(data: exportData)
-                    let url = try exportService.saveExportedData(jsonData, filename: "AreaBook_Export_\(Date().formatted(.iso8601.day().month().year())).json")
+                    let url = try exportService.saveToFile(data: jsonData, filename: "AreaBook_Export_\(Date().exportFilename).json")
                     shareItems = [url]
                     
                 case .csv:
                     let csvFiles = try exportService.exportToCSV(data: exportData)
-                    let folderURL = try exportService.saveExportedCSVs(csvFiles)
+                    let folderURL = try exportService.saveToFile(data: csvFiles, filename: "AreaBook_Export_\(Date().exportFilename).csv")
                     shareItems = [folderURL]
                     
                 case .both:
                     let jsonData = try exportService.exportToJSON(data: exportData)
                     let csvFiles = try exportService.exportToCSV(data: exportData)
                     
-                    let jsonURL = try exportService.saveExportedData(jsonData, filename: "AreaBook_Export_\(Date().formatted(.iso8601.day().month().year())).json")
-                    let csvFolderURL = try exportService.saveExportedCSVs(csvFiles)
+                    let jsonURL = try exportService.saveToFile(data: jsonData, filename: "AreaBook_Export_\(Date().exportFilename).json")
+                    let csvFolderURL = try exportService.saveToFile(data: csvFiles, filename: "AreaBook_Export_\(Date().exportFilename).csv")
                     
                     shareItems = [jsonURL, csvFolderURL]
                 }
@@ -589,6 +521,12 @@ struct ShareSheet: UIViewControllerRepresentable {
 extension Date {
     var iso8601String: String {
         let formatter = ISO8601DateFormatter()
+        return formatter.string(from: self)
+    }
+    
+    var exportFilename: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
         return formatter.string(from: self)
     }
 }

@@ -57,7 +57,7 @@ struct ContentView: View {
 
 struct MainTabView: View {
     @State private var selectedTab: Tab = .dashboard
-    @State private var showingCreateSheet = false
+    @State private var showingQuickActions = false
     
     enum Tab: String, CaseIterable {
         case dashboard = "Dashboard"
@@ -65,91 +65,62 @@ struct MainTabView: View {
         case calendar = "Calendar"
         case tasks = "Tasks"
         case notes = "Notes"
-        case settings = "Settings"
         
         var icon: String {
-            switch self {
-            case .dashboard: return "house"
-            case .goals: return "flag"
-            case .calendar: return "calendar"
-            case .tasks: return "checkmark.square"
-            case .notes: return "doc.text"
-            case .settings: return "gear"
-            }
-        }
-        
-        var selectedIcon: String {
             switch self {
             case .dashboard: return "house.fill"
             case .goals: return "flag.fill"
             case .calendar: return "calendar"
             case .tasks: return "checkmark.square.fill"
             case .notes: return "doc.text.fill"
-            case .settings: return "gear"
             }
         }
     }
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            DashboardView()
-                .tabItem {
-                    Image(systemName: selectedTab == .dashboard ? Tab.dashboard.selectedIcon : Tab.dashboard.icon)
-                    Text(Tab.dashboard.rawValue)
-                }
-                .tag(Tab.dashboard)
-            
-            GoalsView()
-                .tabItem {
-                    Image(systemName: selectedTab == .goals ? Tab.goals.selectedIcon : Tab.goals.icon)
-                    Text(Tab.goals.rawValue)
-                }
-                .tag(Tab.goals)
-            
-            CalendarView()
-                .tabItem {
-                    Image(systemName: selectedTab == .calendar ? Tab.calendar.selectedIcon : Tab.calendar.icon)
-                    Text(Tab.calendar.rawValue)
-                }
-                .tag(Tab.calendar)
-            
-            TasksView()
-                .tabItem {
-                    Image(systemName: selectedTab == .tasks ? Tab.tasks.selectedIcon : Tab.tasks.icon)
-                    Text(Tab.tasks.rawValue)
-                }
-                .tag(Tab.tasks)
-            
-            NotesView()
-                .tabItem {
-                    Image(systemName: selectedTab == .notes ? Tab.notes.selectedIcon : Tab.notes.icon)
-                    Text(Tab.notes.rawValue)
-                }
-                .tag(Tab.notes)
-            
-            SettingsView()
-                .tabItem {
-                    Image(systemName: selectedTab == .settings ? Tab.settings.selectedIcon : Tab.settings.icon)
-                    Text(Tab.settings.rawValue)
-                }
-                .tag(Tab.settings)
-        }
-        .accentColor(.blue)
-        .overlay(
-            // Floating Add Button
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    FloatingActionButton(selectedTab: selectedTab) {
-                        showingCreateSheet = true
+        ZStack(alignment: .bottomTrailing) {
+            TabView(selection: $selectedTab) {
+                DashboardView()
+                    .tabItem {
+                        Label("Dashboard", systemImage: "house.fill")
                     }
-                    .padding()
-                }
+                    .tag(Tab.dashboard)
+                
+                GoalsView()
+                    .tabItem {
+                        Label("Goals", systemImage: "flag.fill")
+                    }
+                    .tag(Tab.goals)
+                
+                CalendarView()
+                    .tabItem {
+                        Label("Calendar", systemImage: "calendar")
+                    }
+                    .tag(Tab.calendar)
+                
+                TasksView()
+                    .tabItem {
+                        Label("Tasks", systemImage: "checkmark.square.fill")
+                    }
+                    .tag(Tab.tasks)
+                
+                NotesView()
+                    .tabItem {
+                        Label("Notes", systemImage: "doc.text.fill")
+                    }
+                    .tag(Tab.notes)
             }
-        )
-        .sheet(isPresented: $showingCreateSheet) {
-            CreateItemSheet(selectedTab: selectedTab)
+            
+            // Floating Action Button
+            FloatingActionButton(showingQuickActions: $showingQuickActions)
+                .padding(.bottom, 90)
+                .padding(.trailing, 20)
+        }
+        .overlay {
+            if showingQuickActions {
+                QuickActionsMenu(isPresented: $showingQuickActions)
+                    .transition(.opacity)
+            }
         }
     }
 }

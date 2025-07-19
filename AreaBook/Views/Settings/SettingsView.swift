@@ -311,55 +311,623 @@ struct DataSyncView: View {
 }
 
 struct ExportDataView: View {
+    @EnvironmentObject var dataManager: DataManager
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var isExporting = false
+    @State private var showShareSheet = false
+    @State private var exportURL: URL?
+    @State private var showError = false
+    @State private var errorMessage = ""
+    @State private var showSuccess = false
+    @State private var successMessage = ""
+    
     var body: some View {
         List {
             Section("Export Options") {
-                Button("Export All Data") {
-                    // TODO: Implement data export
+                Button(action: exportAllData) {
+                    Label("Export All Data", systemImage: "square.and.arrow.up")
                 }
+                .disabled(isExporting)
                 
-                Button("Export Goals Only") {
-                    // TODO: Implement goals export
+                Button(action: exportGoals) {
+                    Label("Export Goals Only", systemImage: "flag")
                 }
+                .disabled(isExporting)
                 
-                Button("Export Tasks Only") {
-                    // TODO: Implement tasks export
+                Button(action: exportTasks) {
+                    Label("Export Tasks Only", systemImage: "checkmark.square")
                 }
+                .disabled(isExporting)
                 
-                Button("Export Notes Only") {
-                    // TODO: Implement notes export
+                Button(action: exportNotes) {
+                    Label("Export Notes Only", systemImage: "doc.text")
                 }
+                .disabled(isExporting)
+                
+                Button(action: exportKeyIndicators) {
+                    Label("Export Key Indicators", systemImage: "chart.bar")
+                }
+                .disabled(isExporting)
+            }
+            
+            Section("Export to CSV") {
+                Button(action: exportTasksCSV) {
+                    Label("Export Tasks as CSV", systemImage: "tablecells")
+                }
+                .disabled(isExporting)
+                
+                Button(action: exportGoalsCSV) {
+                    Label("Export Goals as CSV", systemImage: "tablecells")
+                }
+                .disabled(isExporting)
             }
             
             Section {
-                Text("Exported data will be saved as a JSON file that you can import into other apps or keep as a backup.")
+                Text("Exported data will be saved as a JSON or CSV file that you can import into other apps or keep as a backup.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
         .navigationTitle("Export Data")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            if isExporting {
+                LoadingOverlay(message: "Exporting...")
+            }
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let url = exportURL {
+                ShareSheet(items: [url])
+            }
+        }
+        .alert("Export Error", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+        .overlay(alignment: .top) {
+            if showSuccess {
+                SuccessToast(message: successMessage, icon: "checkmark.circle.fill", isShowing: $showSuccess)
+                    .padding(.top, 50)
+            }
+        }
     }
+    
+    private func exportAllData() {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        
+        isExporting = true
+        Task {
+            do {
+                let url = try DataExportService.shared.exportAllData(for: userId, dataManager: dataManager)
+                await MainActor.run {
+                    exportURL = url
+                    showShareSheet = true
+                    isExporting = false
+                    successMessage = "All data exported successfully"
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    private func exportGoals() {
+        isExporting = true
+        Task {
+            do {
+                let url = try DataExportService.shared.exportGoals(goals: dataManager.goals)
+                await MainActor.run {
+                    exportURL = url
+                    showShareSheet = true
+                    isExporting = false
+                    successMessage = "Goals exported successfully"
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    private func exportTasks() {
+        isExporting = true
+        Task {
+            do {
+                let url = try DataExportService.shared.exportTasks(tasks: dataManager.tasks)
+                await MainActor.run {
+                    exportURL = url
+                    showShareSheet = true
+                    isExporting = false
+                    successMessage = "Tasks exported successfully"
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    private func exportNotes() {
+        isExporting = true
+        Task {
+            do {
+                let url = try DataExportService.shared.exportNotes(notes: dataManager.notes)
+                await MainActor.run {
+                    exportURL = url
+                    showShareSheet = true
+                    isExporting = false
+                    successMessage = "Notes exported successfully"
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    private func exportKeyIndicators() {
+        isExporting = true
+        Task {
+            do {
+                let url = try DataExportService.shared.exportKeyIndicators(keyIndicators: dataManager.keyIndicators)
+                await MainActor.run {
+                    exportURL = url
+                    showShareSheet = true
+                    isExporting = false
+                    successMessage = "Key Indicators exported successfully"
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    private func exportTasksCSV() {
+        isExporting = true
+        Task {
+            do {
+                let url = try DataExportService.shared.exportTasksToCSV(tasks: dataManager.tasks)
+                await MainActor.run {
+                    exportURL = url
+                    showShareSheet = true
+                    isExporting = false
+                    successMessage = "Tasks CSV exported successfully"
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    private func exportGoalsCSV() {
+        isExporting = true
+        Task {
+            do {
+                let url = try DataExportService.shared.exportGoalsToCSV(goals: dataManager.goals)
+                await MainActor.run {
+                    exportURL = url
+                    showShareSheet = true
+                    isExporting = false
+                    successMessage = "Goals CSV exported successfully"
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct HelpView: View {
     var body: some View {
         List {
             Section("Getting Started") {
-                NavigationLink("How to use AreaBook", destination: Text("Help content"))
-                NavigationLink("Creating your first goal", destination: Text("Help content"))
-                NavigationLink("Setting up Key Indicators", destination: Text("Help content"))
+                NavigationLink("How to use AreaBook", destination: HowToUseAreaBookView())
+                NavigationLink("Creating your first goal", destination: CreatingFirstGoalView())
+                NavigationLink("Setting up Key Indicators", destination: SettingUpKeyIndicatorsView())
             }
             
             Section("Features") {
-                NavigationLink("Managing Tasks", destination: Text("Help content"))
-                NavigationLink("Calendar & Events", destination: Text("Help content"))
-                NavigationLink("Note Taking", destination: Text("Help content"))
-                NavigationLink("Accountability Groups", destination: Text("Help content"))
+                NavigationLink("Managing Tasks", destination: ManagingTasksHelpView())
+                NavigationLink("Calendar & Events", destination: CalendarEventsHelpView())
+                NavigationLink("Note Taking", destination: NoteTakingHelpView())
+                NavigationLink("Accountability Groups", destination: AccountabilityGroupsHelpView())
+            }
+            
+            Section("Advanced") {
+                NavigationLink("Siri Shortcuts", destination: SiriShortcutsHelpView())
+                NavigationLink("Widgets", destination: WidgetsHelpView())
+                NavigationLink("Data Export/Import", destination: DataExportImportHelpView())
             }
         }
         .navigationTitle("Help & FAQ")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Additional Help Views
+struct ManagingTasksHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Managing Tasks")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Text("Tasks help you break down your goals into actionable items. Here's how to manage them effectively:")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                
+                HelpSection(
+                    title: "Creating Tasks",
+                    icon: "plus.circle",
+                    description: "Add tasks with priorities, due dates, and subtasks",
+                    tips: [
+                        "Use high priority for urgent tasks",
+                        "Add subtasks to break down complex items",
+                        "Link tasks to goals or events for context",
+                        "Set realistic due dates"
+                    ]
+                )
+                
+                HelpSection(
+                    title: "Task Filters",
+                    icon: "line.horizontal.3.decrease.circle",
+                    description: "Filter tasks to focus on what matters",
+                    tips: [
+                        "All: View everything at once",
+                        "Pending: Focus on incomplete tasks",
+                        "Completed: Review your accomplishments",
+                        "Overdue: Catch up on missed deadlines"
+                    ]
+                )
+                
+                HelpSection(
+                    title: "Quick Actions",
+                    icon: "hand.tap",
+                    description: "Interact with tasks efficiently",
+                    tips: [
+                        "Tap the circle to mark complete",
+                        "Swipe left to delete",
+                        "Tap the task to edit details",
+                        "Long press for more options"
+                    ]
+                )
+            }
+            .padding()
+        }
+        .navigationTitle("Managing Tasks")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct CalendarEventsHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Calendar & Events")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                HelpSection(
+                    title: "Creating Events",
+                    icon: "calendar.badge.plus",
+                    description: "Schedule and organize your time effectively",
+                    tips: [
+                        "Set all-day events for important dates",
+                        "Create recurring events for regular activities",
+                        "Link events to goals for better tracking",
+                        "Add tasks to events for preparation"
+                    ]
+                )
+                
+                HelpSection(
+                    title: "Recurring Events",
+                    icon: "repeat",
+                    description: "Set up repeating schedules easily",
+                    tips: [
+                        "Daily: For everyday habits",
+                        "Weekly: Select specific days",
+                        "Monthly: Same date each month",
+                        "Yearly: Annual occasions"
+                    ]
+                )
+            }
+            .padding()
+        }
+        .navigationTitle("Calendar & Events")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct NoteTakingHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Note Taking")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                HelpSection(
+                    title: "Creating Notes",
+                    icon: "doc.text",
+                    description: "Capture thoughts and ideas effectively",
+                    tips: [
+                        "Use tags to organize notes by topic",
+                        "Link notes to goals and tasks",
+                        "Search notes by title or content",
+                        "Create folders for organization"
+                    ]
+                )
+            }
+            .padding()
+        }
+        .navigationTitle("Note Taking")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct AccountabilityGroupsHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Accountability Groups")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                HelpSection(
+                    title: "Creating Groups",
+                    icon: "person.3",
+                    description: "Share progress with friends and family",
+                    tips: [
+                        "Create groups for different purposes",
+                        "Share invitation codes securely",
+                        "Set group permissions and privacy",
+                        "Create challenges to motivate members"
+                    ]
+                )
+                
+                HelpSection(
+                    title: "Group Features",
+                    icon: "bubble.left.and.bubble.right",
+                    description: "Collaborate and stay motivated together",
+                    tips: [
+                        "Share progress updates automatically",
+                        "Create group challenges",
+                        "Send encouragements to members",
+                        "Track group statistics"
+                    ]
+                )
+            }
+            .padding()
+        }
+        .navigationTitle("Accountability Groups")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct SiriShortcutsHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Siri Shortcuts")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Text("Use voice commands to update your progress hands-free:")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                
+                VStack(alignment: .leading, spacing: 16) {
+                    SiriCommandCard(
+                        phrase: "Add task to AreaBook",
+                        description: "Quickly create a new task",
+                        example: "Hey Siri, add task to AreaBook"
+                    )
+                    
+                    SiriCommandCard(
+                        phrase: "Log task success",
+                        description: "Mark a task as completed",
+                        example: "Hey Siri, log task success"
+                    )
+                    
+                    SiriCommandCard(
+                        phrase: "Update my life tracker",
+                        description: "Record progress on key indicators",
+                        example: "Hey Siri, update my life tracker"
+                    )
+                    
+                    SiriCommandCard(
+                        phrase: "What's my schedule today",
+                        description: "Get your daily overview",
+                        example: "Hey Siri, what's my schedule today"
+                    )
+                }
+            }
+            .padding()
+        }
+        .navigationTitle("Siri Shortcuts")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct WidgetsHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Home Screen Widgets")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Text("Add widgets to your home screen for quick access:")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                
+                WidgetInfoCard(
+                    size: "Small",
+                    description: "Shows key indicator progress and task count",
+                    features: ["Progress bars", "Task summary"]
+                )
+                
+                WidgetInfoCard(
+                    size: "Medium",
+                    description: "Displays multiple key indicators with details",
+                    features: ["4 key indicators", "Progress percentages", "Quick glance"]
+                )
+                
+                WidgetInfoCard(
+                    size: "Large",
+                    description: "Full dashboard overview on your home screen",
+                    features: ["All key indicators", "Today's tasks", "Upcoming events"]
+                )
+            }
+            .padding()
+        }
+        .navigationTitle("Widgets")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct DataExportImportHelpView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Data Export & Import")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                HelpSection(
+                    title: "Export Options",
+                    icon: "square.and.arrow.up",
+                    description: "Back up your data in multiple formats",
+                    tips: [
+                        "JSON format for complete backup",
+                        "CSV format for spreadsheet analysis",
+                        "Export all data or specific sections",
+                        "Share files via email or cloud storage"
+                    ]
+                )
+                
+                HelpSection(
+                    title: "Import Data",
+                    icon: "square.and.arrow.down",
+                    description: "Restore your data from backups",
+                    tips: [
+                        "Import from JSON backups",
+                        "Merge or replace existing data",
+                        "Validate data before importing",
+                        "Keep regular backups"
+                    ]
+                )
+            }
+            .padding()
+        }
+        .navigationTitle("Data Export & Import")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Supporting Components
+struct SiriCommandCard: View {
+    let phrase: String
+    let description: String
+    let example: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "mic.fill")
+                    .foregroundColor(.purple)
+                Text(phrase)
+                    .font(.headline)
+            }
+            
+            Text(description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Text(example)
+                .font(.caption)
+                .foregroundColor(.blue)
+                .italic()
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+}
+
+struct WidgetInfoCard: View {
+    let size: String
+    let description: String
+    let features: [String]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("\(size) Widget")
+                .font(.headline)
+            
+            Text(description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(features, id: \.self) { feature in
+                    HStack {
+                        Image(systemName: "checkmark")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Text(feature)
+                            .font(.caption)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
     }
 }
 

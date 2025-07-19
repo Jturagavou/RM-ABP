@@ -4,6 +4,8 @@ struct TasksView: View {
     @EnvironmentObject var dataManager: DataManager
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var selectedFilter: TaskFilter = .all
+    @State private var showingCreateTask = false
+    @State private var taskToEdit: Task?
     
     enum TaskFilter: String, CaseIterable {
         case all = "All"
@@ -43,21 +45,49 @@ struct TasksView: View {
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                     .multilineTextAlignment(.center)
+                                
+                                Button("Create Task") {
+                                    showingCreateTask = true
+                                }
+                                .buttonStyle(.borderedProminent)
                             }
                             .padding(.top, 100)
                         } else {
                             ForEach(filteredTasks) { task in
                                 TaskCard(task: task) {
                                     toggleTaskCompletion(task)
+                                } onEdit: {
+                                    taskToEdit = task
+                                } onDelete: {
+                                    deleteTask(task)
                                 }
+                                .transition(.move(edge: .trailing).combined(with: .opacity))
                             }
                         }
                     }
                     .padding()
+                    .animation(.easeInOut, value: filteredTasks.map { $0.id })
                 }
             }
             .navigationTitle("Tasks")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingCreateTask = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            .sheet(isPresented: $showingCreateTask) {
+                CreateTaskView()
+            }
+            .sheet(item: $taskToEdit) { task in
+                CreateTaskView(taskToEdit: task)
+            }
         }
     }
     
@@ -88,11 +118,20 @@ struct TasksView: View {
         
         dataManager.updateTask(updatedTask, userId: userId)
     }
+    
+    private func deleteTask(_ task: Task) {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        dataManager.deleteTask(task, userId: userId)
+    }
 }
 
 struct TaskCard: View {
     let task: Task
     let onToggle: () -> Void
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var isPressed = false
     
     var body: some View {
         HStack(spacing: 12) {
@@ -137,6 +176,31 @@ struct TaskCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .contextMenu {
+            Button {
+                onEdit()
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    isPressed = false
+                }
+                onEdit()
+            }
+        }
     }
 }
 

@@ -255,23 +255,8 @@ struct CreateEventView: View {
         
         let event: CalendarEvent
         if let existingEvent = eventToEdit {
-            event = CalendarEvent(
-                id: existingEvent.id,
-                title: title,
-                description: description,
-                category: category,
-                startTime: startDate,
-                endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
-                linkedGoalId: selectedGoalId,
-                taskIds: linkedTasks.map { $0.id },
-                isRecurring: isRecurring,
-                recurrencePattern: recurrencePattern,
-                status: existingEvent.status,
-                createdAt: existingEvent.createdAt,
-                updatedAt: Date()
-            )
-        } else {
-            event = CalendarEvent(
+            // Create a new event with all the updated properties
+            var updatedEvent = CalendarEvent(
                 title: title,
                 description: description,
                 category: category,
@@ -279,9 +264,29 @@ struct CreateEventView: View {
                 endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
                 linkedGoalId: selectedGoalId
             )
-            event.taskIds = linkedTasks.map { $0.id }
-            event.isRecurring = isRecurring
-            event.recurrencePattern = recurrencePattern
+            updatedEvent.id = existingEvent.id
+            updatedEvent.taskIds = linkedTasks.map { $0.id }
+            updatedEvent.isRecurring = isRecurring
+            updatedEvent.recurrencePattern = recurrencePattern
+            updatedEvent.status = existingEvent.status
+            updatedEvent.createdAt = existingEvent.createdAt
+            updatedEvent.updatedAt = Date()
+            
+            event = updatedEvent
+        } else {
+            var newEvent = CalendarEvent(
+                title: title,
+                description: description,
+                category: category,
+                startTime: startDate,
+                endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
+                linkedGoalId: selectedGoalId
+            )
+            newEvent.taskIds = linkedTasks.map { $0.id }
+            newEvent.isRecurring = isRecurring
+            newEvent.recurrencePattern = recurrencePattern
+            
+            event = newEvent
         }
         
         // Save event

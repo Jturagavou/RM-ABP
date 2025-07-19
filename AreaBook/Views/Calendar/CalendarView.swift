@@ -4,6 +4,9 @@ struct CalendarView: View {
     @EnvironmentObject var dataManager: DataManager
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var selectedDate = Date()
+    @State private var showingCreateEvent = false
+    @State private var selectedEvent: CalendarEvent?
+    @State private var refreshID = UUID()
     
     var body: some View {
         NavigationView {
@@ -32,19 +35,54 @@ struct CalendarView: View {
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                     .multilineTextAlignment(.center)
+                                
+                                Button("Create Event") {
+                                    showingCreateEvent = true
+                                }
+                                .buttonStyle(.borderedProminent)
                             }
                             .padding(.top, 50)
                         } else {
                             ForEach(eventsForDate) { event in
                                 EventCard(event: event)
+                                    .onTapGesture {
+                                        selectedEvent = event
+                                    }
                             }
                         }
                     }
                     .padding()
                 }
+                .id(refreshID)
             }
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingCreateEvent = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            .refreshable {
+                refreshID = UUID()
+            }
+            .sheet(isPresented: $showingCreateEvent) {
+                CreateEventView()
+                    .onDisappear {
+                        refreshID = UUID()
+                    }
+            }
+            .sheet(item: $selectedEvent) { event in
+                CreateEventView(eventToEdit: event)
+                    .onDisappear {
+                        refreshID = UUID()
+                    }
+            }
         }
     }
     
@@ -58,6 +96,7 @@ struct CalendarView: View {
 
 struct EventCard: View {
     let event: CalendarEvent
+    @State private var isPressed = false
     
     var body: some View {
         HStack(spacing: 12) {
@@ -91,21 +130,44 @@ struct EventCard: View {
                         .lineLimit(2)
                 }
                 
-                Text(event.category)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.blue.opacity(0.2))
-                    .foregroundColor(.blue)
-                    .cornerRadius(6)
+                HStack {
+                    Text(event.category)
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.2))
+                        .foregroundColor(.blue)
+                        .cornerRadius(6)
+                    
+                    if event.isRecurring {
+                        Image(systemName: "repeat")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                }
             }
             
             Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    isPressed = false
+                }
+            }
+        }
     }
 }
 

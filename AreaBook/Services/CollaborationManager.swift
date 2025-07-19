@@ -46,6 +46,11 @@ class CollaborationManager: ObservableObject {
             throw CollaborationError.invalidInvitationCode
         }
         
+        // Check if user is already a member
+        if group.members.contains(where: { $0.userId == userId }) {
+            throw CollaborationError.userAlreadyInGroup
+        }
+        
         // Add user to group
         let member = GroupMember(userId: userId, role: .member, joinedAt: Date())
         try await db.collection("groups").document(groupId).updateData([
@@ -54,6 +59,19 @@ class CollaborationManager: ObservableObject {
         
         // Add to user's groups
         try await addUserToGroup(userId: userId, groupId: groupId, role: .member)
+    }
+    
+    func findGroupByInvitationCode(_ code: String) async throws -> AccountabilityGroup? {
+        let snapshot = try await db.collection("groups")
+            .whereField("invitationCode", isEqualTo: code.uppercased())
+            .limit(to: 1)
+            .getDocuments()
+        
+        guard let document = snapshot.documents.first else {
+            return nil
+        }
+        
+        return AccountabilityGroup(from: document)
     }
     
     func leaveGroup(groupId: String, userId: String) async throws {
@@ -479,12 +497,30 @@ struct GroupInvitation: Identifiable, Codable {
     }
 }
 
-enum CollaborationError: Error {
+enum CollaborationError: Error, LocalizedError {
     case groupNotFound
     case invalidInvitationCode
     case insufficientPermissions
     case userNotInGroup
     case challengeNotFound
+    case userAlreadyInGroup
+    
+    var errorDescription: String? {
+        switch self {
+        case .groupNotFound:
+            return "The group could not be found"
+        case .invalidInvitationCode:
+            return "The invitation code is invalid or has expired"
+        case .insufficientPermissions:
+            return "You don't have permission to perform this action"
+        case .userNotInGroup:
+            return "You are not a member of this group"
+        case .challengeNotFound:
+            return "The challenge could not be found"
+        case .userAlreadyInGroup:
+            return "You are already a member of this group"
+        }
+    }
 }
 
 // MARK: - Extensions for AccountabilityGroup

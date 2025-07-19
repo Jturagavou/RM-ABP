@@ -269,20 +269,40 @@ struct Note: Identifiable, Codable {
 struct AccountabilityGroup: Identifiable, Codable {
     let id: String
     var name: String
-    var type: GroupType
-    var parentGroupId: String? // For companionships within districts
+    var description: String
+    var creatorId: String
     var members: [GroupMember]
+    var settings: GroupSettings
+    var invitationCode: String
     var createdAt: Date
     var updatedAt: Date
     
-    init(name: String, type: GroupType, parentGroupId: String? = nil) {
+    init(name: String, description: String, creatorId: String, members: [GroupMember], settings: GroupSettings) {
         self.id = UUID().uuidString
         self.name = name
-        self.type = type
-        self.parentGroupId = parentGroupId
-        self.members = []
+        self.description = description
+        self.creatorId = creatorId
+        self.members = members
+        self.settings = settings
+        self.invitationCode = String(UUID().uuidString.prefix(8)).uppercased()
         self.createdAt = Date()
         self.updatedAt = Date()
+    }
+}
+
+struct GroupSettings: Codable {
+    var isPublic: Bool
+    var allowInvitations: Bool
+    var shareProgress: Bool
+    var allowChallenges: Bool
+    var notificationSettings: [String: Bool]
+    
+    init(isPublic: Bool = false, allowInvitations: Bool = true, shareProgress: Bool = true, allowChallenges: Bool = true, notificationSettings: [String: Bool] = [:]) {
+        self.isPublic = isPublic
+        self.allowInvitations = allowInvitations
+        self.shareProgress = shareProgress
+        self.allowChallenges = allowChallenges
+        self.notificationSettings = notificationSettings
     }
 }
 
@@ -291,27 +311,24 @@ enum GroupType: String, Codable, CaseIterable {
     case companionship = "companionship"
 }
 
-struct GroupMember: Identifiable, Codable {
-    let id: String
+struct GroupMember: Codable {
     var userId: String
     var role: GroupRole
     var joinedAt: Date
-    var permissions: GroupPermissions
+    var lastActive: Date
     
-    init(userId: String, role: GroupRole) {
-        self.id = UUID().uuidString
+    init(userId: String, role: GroupRole, joinedAt: Date = Date(), lastActive: Date = Date()) {
         self.userId = userId
         self.role = role
-        self.joinedAt = Date()
-        self.permissions = GroupPermissions(role: role)
+        self.joinedAt = joinedAt
+        self.lastActive = lastActive
     }
 }
 
 enum GroupRole: String, Codable, CaseIterable {
     case admin = "admin"
-    case leader = "leader"
+    case moderator = "moderator"
     case member = "member"
-    case viewer = "viewer"
 }
 
 struct GroupPermissions: Codable {

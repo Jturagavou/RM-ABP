@@ -75,7 +75,10 @@ struct DashboardView: View {
     
     private func refreshDashboard() {
         guard let userId = authViewModel.currentUser?.id else { return }
-        dashboardData = dataManager.getDashboardData(for: userId)
+        // Use @MainActor to ensure UI updates happen on main thread
+        Task { @MainActor in
+            dashboardData = dataManager.getDashboardData(for: userId)
+        }
     }
 }
 
@@ -220,6 +223,7 @@ struct TodaysTasksSection: View {
     let tasks: [Task]
     @EnvironmentObject var dataManager: DataManager
     @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var completedTasks = Set<String>()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -230,7 +234,7 @@ struct TodaysTasksSection: View {
                     .font(.headline)
                     .fontWeight(.semibold)
                 Spacer()
-                Text("\(tasks.filter { $0.status == .completed }.count)/\(tasks.count)")
+                Text("\(tasks.filter { $0.status == .completed || completedTasks.contains($0.id) }.count)/\(tasks.count)")
                     .font(.caption)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -246,7 +250,10 @@ struct TodaysTasksSection: View {
             } else {
                 LazyVStack(spacing: 8) {
                     ForEach(tasks.prefix(5)) { task in
-                        TaskRowView(task: task) {
+                        TaskRowView(
+                            task: task,
+                            isCompleted: task.status == .completed || completedTasks.contains(task.id)
+                        ) {
                             toggleTaskCompletion(task)
                         }
                     }
@@ -271,8 +278,16 @@ struct TodaysTasksSection: View {
         guard let userId = authViewModel.currentUser?.id else { return }
         
         var updatedTask = task
-        updatedTask.status = task.status == .completed ? .pending : .completed
-        updatedTask.completedAt = updatedTask.status == .completed ? Date() : nil
+        
+        if completedTasks.contains(task.id) {
+            completedTasks.remove(task.id)
+            updatedTask.status = .pending
+            updatedTask.completedAt = nil
+        } else {
+            completedTasks.insert(task.id)
+            updatedTask.status = .completed
+            updatedTask.completedAt = Date()
+        }
         
         dataManager.updateTask(updatedTask, userId: userId)
     }
@@ -280,21 +295,22 @@ struct TodaysTasksSection: View {
 
 struct TaskRowView: View {
     let task: Task
+    let isCompleted: Bool
     let onToggle: () -> Void
     
     var body: some View {
         HStack(spacing: 12) {
             Button(action: onToggle) {
-                Image(systemName: task.status == .completed ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(task.status == .completed ? .green : .gray)
+                Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isCompleted ? .green : .gray)
                     .font(.title3)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(task.title)
                     .font(.subheadline)
-                    .strikethrough(task.status == .completed)
-                    .foregroundColor(task.status == .completed ? .secondary : .primary)
+                    .strikethrough(isCompleted)
+                    .foregroundColor(isCompleted ? .secondary : .primary)
                 
                 if let dueDate = task.dueDate {
                     Text(dueDate, style: .time)
@@ -455,6 +471,7 @@ struct GoalRowView: View {
 struct ProfileView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var showingConfirmation = false
     
     var body: some View {
         NavigationView {
@@ -482,8 +499,7 @@ struct ProfileView: View {
                 Spacer()
                 
                 Button("Sign Out") {
-                    authViewModel.signOut()
-                    dismiss()
+                    showingConfirmation = true
                 }
                 .foregroundColor(.red)
                 .frame(maxWidth: .infinity)
@@ -500,6 +516,15 @@ struct ProfileView: View {
                         dismiss()
                     }
                 }
+            }
+            .alert("Sign Out", isPresented: $showingConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    authViewModel.signOut()
+                    dismiss()
+                }
+            } message: {
+                Text("Are you sure you want to sign out?")
             }
         }
     }

@@ -6,6 +6,8 @@ struct GroupsView: View {
     @State private var showingCreateGroup = false
     @State private var showingJoinGroup = false
     @State private var selectedGroup: AccountabilityGroup?
+    @State private var showingUserSuggestions = false
+    @State private var unreadNotificationCount = 0
     
     var body: some View {
         NavigationView {
@@ -15,7 +17,7 @@ struct GroupsView: View {
                     GroupsHeaderCard(
                         totalGroups: collaborationManager.currentUserGroups.count,
                         totalChallenges: collaborationManager.groupChallenges.count,
-                        unreadNotifications: 0 // TODO: Implement notification count
+                        unreadNotifications: unreadNotificationCount
                     )
                     
                     // My Groups Section
@@ -87,6 +89,8 @@ struct GroupsView: View {
                     Menu {
                         Button("Create Group", action: { showingCreateGroup = true })
                         Button("Join Group", action: { showingJoinGroup = true })
+                        Divider()
+                        Button("Invite Users", action: { showingUserSuggestions = true })
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
@@ -108,6 +112,12 @@ struct GroupsView: View {
             }
             .sheet(item: $selectedGroup) { group in
                 GroupDetailView(group: group)
+            }
+            .sheet(isPresented: $showingUserSuggestions) {
+                UserSuggestionView { userId in
+                    // Handle user selection for invitation
+                    print("Selected user: \(userId)")
+                }
             }
         }
     }
@@ -203,6 +213,7 @@ struct EmptyGroupsView: View {
 struct GroupCard: View {
     let group: AccountabilityGroup
     let onTap: () -> Void
+    @EnvironmentObject var authViewModel: AuthViewModel
     
     var body: some View {
         Button(action: onTap) {
@@ -232,7 +243,8 @@ struct GroupCard: View {
                     
                     Spacer()
                     
-                    if let userRole = getCurrentUserRole(in: group) {
+                    if let userId = authViewModel.currentUser?.id,
+                       let userRole = group.members.first(where: { $0.userId == userId })?.role {
                         Text(userRole.rawValue.capitalized)
                             .font(.caption2)
                             .padding(.horizontal, 6)
@@ -249,11 +261,6 @@ struct GroupCard: View {
             .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(PlainButtonStyle())
-    }
-    
-    private func getCurrentUserRole(in group: AccountabilityGroup) -> GroupRole? {
-        // TODO: Get current user ID from auth
-        return group.members.first?.role
     }
 }
 
@@ -286,6 +293,8 @@ struct RecentActivityList: View {
 
 struct ProgressActivityRow: View {
     let progress: ProgressShare
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var userName: String = "User"
     
     var body: some View {
         HStack(spacing: 12) {
@@ -299,7 +308,7 @@ struct ProgressActivityRow: View {
                 )
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(activityDescription)
+                Text("\(userName) \(activityDescription)")
                     .font(.subheadline)
                     .fontWeight(.medium)
                 
@@ -309,6 +318,20 @@ struct ProgressActivityRow: View {
             }
             
             Spacer()
+        }
+        .onAppear {
+            loadUserName()
+        }
+    }
+    
+    private func loadUserName() {
+        // If it's the current user, use their name
+        if let currentUser = authViewModel.currentUser,
+           currentUser.id == progress.userId {
+            userName = currentUser.name
+        } else {
+            // Otherwise, show a placeholder or fetch from somewhere
+            userName = "User"
         }
     }
     
@@ -333,13 +356,34 @@ struct ProgressActivityRow: View {
     }
     
     private var activityDescription: String {
-        // TODO: Parse progress.data for more specific descriptions
         switch progress.type {
-        case .kiUpdate: return "Updated life tracker progress"
-        case .goalProgress: return "Made progress on a goal"
-        case .taskCompleted: return "Completed a task"
-        case .milestone: return "Reached a milestone"
-        case .achievement: return "Unlocked an achievement"
+        case .kiUpdate:
+            if let kiName = progress.data["name"] as? String,
+               let value = progress.data["value"] as? Int {
+                return "updated \(kiName) to \(value)"
+            }
+            return "updated life tracker progress"
+        case .goalProgress:
+            if let goalTitle = progress.data["title"] as? String,
+               let progressValue = progress.data["progress"] as? Int {
+                return "made \(progressValue)% progress on \(goalTitle)"
+            }
+            return "made progress on a goal"
+        case .taskCompleted:
+            if let taskTitle = progress.data["title"] as? String {
+                return "completed task: \(taskTitle)"
+            }
+            return "completed a task"
+        case .milestone:
+            if let milestone = progress.data["milestone"] as? String {
+                return "reached milestone: \(milestone)"
+            }
+            return "reached a milestone"
+        case .achievement:
+            if let achievement = progress.data["achievement"] as? String {
+                return "unlocked: \(achievement)"
+            }
+            return "unlocked an achievement"
         }
     }
 }
@@ -403,7 +447,7 @@ struct ChallengeCard: View {
     }
 }
 
-// MARK: - Create Group View
+// MARK: - Create Group View (Fixed)
 
 struct CreateGroupView: View {
     @Environment(\.dismiss) private var dismiss
@@ -417,6 +461,8 @@ struct CreateGroupView: View {
     @State private var shareProgress = true
     @State private var allowChallenges = true
     @State private var isCreating = false
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     var body: some View {
         NavigationView {
@@ -424,7 +470,7 @@ struct CreateGroupView: View {
                 Section("Group Details") {
                     TextField("Group Name", text: $groupName)
                     TextField("Description", text: $groupDescription, axis: .vertical)
-                        .lineLimit(3)
+                        .lineLimit(3...5)
                 }
                 
                 Section("Settings") {
@@ -456,6 +502,11 @@ struct CreateGroupView: View {
                     .disabled(groupName.isEmpty || isCreating)
                 }
             }
+            .alert("Error", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
+            }
         }
     }
     
@@ -476,16 +527,20 @@ struct CreateGroupView: View {
                     dismiss()
                 }
             } catch {
-                print("Error creating group: \(error)")
-                // TODO: Show error alert
+                DispatchQueue.main.async {
+                    errorMessage = "Failed to create group: \(error.localizedDescription)"
+                    showError = true
+                }
             }
             
-            isCreating = false
+            DispatchQueue.main.async {
+                isCreating = false
+            }
         }
     }
 }
 
-// MARK: - Join Group View
+// MARK: - Join Group View (Fixed)
 
 struct JoinGroupView: View {
     @Environment(\.dismiss) private var dismiss
@@ -494,6 +549,8 @@ struct JoinGroupView: View {
     
     @State private var invitationCode = ""
     @State private var isJoining = false
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     var body: some View {
         NavigationView {
@@ -516,6 +573,7 @@ struct JoinGroupView: View {
                 TextField("Invitation Code", text: $invitationCode)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
                 
                 Button("Join Group") {
                     joinGroup()
@@ -535,6 +593,11 @@ struct JoinGroupView: View {
                     }
                 }
             }
+            .alert("Error", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
+            }
         }
     }
     
@@ -545,32 +608,51 @@ struct JoinGroupView: View {
         
         Task {
             do {
-                // TODO: Extract group ID from invitation code
-                let groupId = "extracted_group_id"
+                // Find group by invitation code
+                guard let group = try await collaborationManager.findGroupByInvitationCode(invitationCode) else {
+                    throw CollaborationError.invalidInvitationCode
+                }
+                
                 try await collaborationManager.joinGroup(
-                    groupId: groupId,
+                    groupId: group.id,
                     userId: userId,
-                    invitationCode: invitationCode
+                    invitationCode: invitationCode.uppercased()
                 )
                 
                 DispatchQueue.main.async {
                     dismiss()
                 }
+            } catch CollaborationError.userAlreadyInGroup {
+                DispatchQueue.main.async {
+                    errorMessage = "You are already a member of this group"
+                    showError = true
+                }
+            } catch CollaborationError.invalidInvitationCode {
+                DispatchQueue.main.async {
+                    errorMessage = "Invalid invitation code"
+                    showError = true
+                }
             } catch {
-                print("Error joining group: \(error)")
-                // TODO: Show error alert
+                DispatchQueue.main.async {
+                    errorMessage = "Failed to join group: \(error.localizedDescription)"
+                    showError = true
+                }
             }
             
-            isJoining = false
+            DispatchQueue.main.async {
+                isJoining = false
+            }
         }
     }
 }
 
-// MARK: - Group Detail View
+// MARK: - Group Detail View (Fixed)
 
 struct GroupDetailView: View {
     let group: AccountabilityGroup
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var showingInvitationCode = false
     
     var body: some View {
         NavigationView {
@@ -597,6 +679,16 @@ struct GroupDetailView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+                        
+                        if canModerateGroup() {
+                            Button {
+                                showingInvitationCode = true
+                            } label: {
+                                Label("Show Invitation Code", systemImage: "square.and.arrow.up")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
                     .padding()
                     .background(Color(.secondarySystemBackground))
@@ -604,9 +696,6 @@ struct GroupDetailView: View {
                     
                     // Members List
                     GroupMembersSection(members: group.members)
-                    
-                    // Recent Activity
-                    // TODO: Show group-specific activity
                     
                     // Group Settings
                     if canModerateGroup() {
@@ -624,17 +713,27 @@ struct GroupDetailView: View {
                     }
                 }
             }
+            .alert("Invitation Code", isPresented: $showingInvitationCode) {
+                Button("Copy", role: .none) {
+                    UIPasteboard.general.string = group.invitationCode
+                }
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Share this code with others to invite them:\n\n\(group.invitationCode)")
+            }
         }
     }
     
     private func canModerateGroup() -> Bool {
-        // TODO: Check if current user can moderate this group
-        return true
+        guard let userId = authViewModel.currentUser?.id else { return false }
+        return group.members.first(where: { $0.userId == userId })?.role == .admin ||
+               group.members.first(where: { $0.userId == userId })?.role == .moderator
     }
 }
 
 struct GroupMembersSection: View {
     let members: [GroupMember]
+    @EnvironmentObject var authViewModel: AuthViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -656,6 +755,8 @@ struct GroupMembersSection: View {
 
 struct GroupMemberRow: View {
     let member: GroupMember
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var userName: String = ""
     
     var body: some View {
         HStack {
@@ -663,13 +764,13 @@ struct GroupMemberRow: View {
                 .fill(Color.blue)
                 .frame(width: 40, height: 40)
                 .overlay(
-                    Text(member.userId.prefix(1).uppercased())
+                    Text(userName.prefix(1).uppercased())
                         .font(.headline)
                         .foregroundColor(.white)
                 )
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(member.userId) // TODO: Get actual user name
+                Text(userName)
                     .font(.subheadline)
                     .fontWeight(.medium)
                 
@@ -687,6 +788,18 @@ struct GroupMemberRow: View {
                 .background(roleColor.opacity(0.2))
                 .foregroundColor(roleColor)
                 .cornerRadius(6)
+        }
+        .onAppear {
+            loadUserName()
+        }
+    }
+    
+    private func loadUserName() {
+        if let currentUser = authViewModel.currentUser,
+           currentUser.id == member.userId {
+            userName = currentUser.name
+        } else {
+            userName = "User \(member.userId.prefix(4))"
         }
     }
     

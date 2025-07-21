@@ -1,6 +1,19 @@
 import WidgetKit
 import SwiftUI
-import Firebase
+
+// Widget configuration constants
+struct WidgetConfiguration {
+    static let appGroupIdentifier = "group.com.areabook.app"
+    
+    struct Keys {
+        static let keyIndicators = "keyIndicators"
+        static let todaysTasks = "todaysTasks" 
+        static let todaysEvents = "todaysEvents"
+        static let lastUpdated = "widgetLastUpdated"
+        static let userName = "userName"
+        static let dailyQuote = "dailyQuote"
+    }
+}
 
 // MARK: - Widget Timeline Provider
 struct AreaBookWidgetProvider: TimelineProvider {
@@ -20,8 +33,8 @@ struct AreaBookWidgetProvider: TimelineProvider {
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
         loadWidgetData { entry in
-            // Update every 30 minutes
-            let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: Date())!
+            // Update every 15 minutes for better UX
+            let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: Date())!
             let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
             completion(timeline)
         }
@@ -29,11 +42,11 @@ struct AreaBookWidgetProvider: TimelineProvider {
     
     private func loadWidgetData(completion: @escaping (AreaBookWidgetEntry) -> Void) {
         // Load data from UserDefaults (shared with main app)
-        let sharedDefaults = UserDefaults(suiteName: "group.com.areabook.app")
+        let sharedDefaults = UserDefaults(suiteName: WidgetConfiguration.appGroupIdentifier)
         
-        let keyIndicatorsData = sharedDefaults?.data(forKey: "keyIndicators") ?? Data()
-        let tasksData = sharedDefaults?.data(forKey: "todaysTasks") ?? Data()
-        let eventsData = sharedDefaults?.data(forKey: "todaysEvents") ?? Data()
+        let keyIndicatorsData = sharedDefaults?.data(forKey: WidgetConfiguration.Keys.keyIndicators) ?? Data()
+        let tasksData = sharedDefaults?.data(forKey: WidgetConfiguration.Keys.todaysTasks) ?? Data()
+        let eventsData = sharedDefaults?.data(forKey: WidgetConfiguration.Keys.todaysEvents) ?? Data()
         
         var keyIndicators: [KeyIndicator] = []
         var tasks: [Task] = []

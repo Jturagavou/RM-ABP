@@ -28,6 +28,23 @@ struct CreateEventView: View {
     
     init(eventToEdit: CalendarEvent? = nil) {
         self.eventToEdit = eventToEdit
+        if let event = eventToEdit {
+            _title = State(initialValue: event.title)
+            _description = State(initialValue: event.description)
+            _category = State(initialValue: event.category)
+            _startDate = State(initialValue: event.startTime)
+            _endDate = State(initialValue: event.endTime)
+            _selectedGoalId = State(initialValue: event.linkedGoalId)
+            _isRecurring = State(initialValue: event.isRecurring)
+            
+            if let pattern = event.recurrencePattern {
+                _recurrenceType = State(initialValue: pattern.type)
+                _recurrenceInterval = State(initialValue: pattern.interval)
+                _selectedDaysOfWeek = State(initialValue: Set(pattern.daysOfWeek ?? []))
+                _recurrenceEndDate = State(initialValue: pattern.endDate)
+                _hasRecurrenceEndDate = State(initialValue: pattern.endDate != nil)
+            }
+        }
     }
     
     var body: some View {

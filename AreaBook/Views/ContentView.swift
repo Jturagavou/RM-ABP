@@ -10,7 +10,7 @@ struct ContentView: View {
                 MainTabView()
                     .onAppear {
                         if let userId = authViewModel.currentUser?.id {
-                            dataManager.setupListeners(for: userId)
+                            dataManager.setupListeners(for: userId, userName: authViewModel.currentUser?.name)
                         }
                     }
                     .onDisappear {

@@ -2,14 +2,21 @@ import Foundation
 import Firebase
 import FirebaseFirestore
 import Combine
+import WidgetKit
 
 class DataManager: ObservableObject {
     static let shared = DataManager()
     
-    @Published var keyIndicators: [KeyIndicator] = []
+    @Published var keyIndicators: [KeyIndicator] = [] {
+        didSet { updateWidgetData() }
+    }
     @Published var goals: [Goal] = []
-    @Published var events: [CalendarEvent] = []
-    @Published var tasks: [Task] = []
+    @Published var events: [CalendarEvent] = [] {
+        didSet { updateWidgetData() }
+    }
+    @Published var tasks: [Task] = [] {
+        didSet { updateWidgetData() }
+    }
     @Published var notes: [Note] = []
     @Published var accountabilityGroups: [AccountabilityGroup] = []
     @Published var encouragements: [Encouragement] = []
@@ -21,11 +28,15 @@ class DataManager: ObservableObject {
     private let db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
     private var cancellables = Set<AnyCancellable>()
+    private var currentUserId: String?
+    private var currentUserName: String?
     
     private init() {}
     
-    func setupListeners(for userId: String) {
+    func setupListeners(for userId: String, userName: String? = nil) {
         removeListeners()
+        currentUserId = userId
+        currentUserName = userName
         
         // Setup real-time listeners for all collections
         setupKeyIndicatorsListener(userId: userId)
@@ -40,6 +51,18 @@ class DataManager: ObservableObject {
     func removeListeners() {
         listeners.forEach { $0.remove() }
         listeners.removeAll()
+        currentUserId = nil
+        currentUserName = nil
+    }
+    
+    // MARK: - Widget Data Sync
+    private func updateWidgetData() {
+        WidgetDataManager.shared.scheduleWidgetUpdate(
+            keyIndicators: keyIndicators,
+            tasks: tasks,
+            events: events,
+            userName: currentUserName
+        )
     }
     
     // MARK: - Key Indicators
@@ -375,9 +398,24 @@ class DataManager: ObservableObject {
             return Calendar.current.isDate(dueDate, inSameDayAs: today)
         }
         
-        let todaysEvents = events.filter { event in
-            return Calendar.current.isDate(event.startTime, inSameDayAs: today)
-        }
+        let todaysEvents = events.flatMap { event -> [CalendarEvent] in
+            if event.isRecurring, let pattern = event.recurrencePattern {
+                // Check if recurring event occurs today
+                if CalendarHelper.isRecurringEventOccursOnDate(event: event, pattern: pattern, date: today) {
+                    // Create a virtual occurrence for today
+                    var todayOccurrence = event
+                    todayOccurrence.startTime = CalendarHelper.combineDateWithTime(date: today, time: event.startTime)
+                    todayOccurrence.endTime = CalendarHelper.combineDateWithTime(date: today, time: event.endTime)
+                    return [todayOccurrence]
+                }
+            } else {
+                // Regular event - check if it's today
+                if Calendar.current.isDate(event.startTime, inSameDayAs: today) {
+                    return [event]
+                }
+            }
+            return []
+        }.sorted { $0.startTime < $1.startTime }
         
         let recentGoals = Array(goals.filter { $0.status == .active }
             .sorted { $0.updatedAt > $1.updatedAt }
@@ -412,13 +450,16 @@ class DataManager: ObservableObject {
     }
     
     private func showError(_ message: String) {
-        DispatchQueue.main.async {
-            self.errorMessage = message
-            self.showError = true
+        DispatchQueue.main.async { [weak self] in
+            self?.errorMessage = message
+            self?.showError = true
+            
+            // Log error for debugging
+            print("[DataManager Error] \(Date()): \(message)")
             
             // Auto-hide after 3 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                self.showError = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                self?.showError = false
             }
         }
     }

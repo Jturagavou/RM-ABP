@@ -1,10 +1,15 @@
 import SwiftUI
+import UIKit
+import Firebase
 
 struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var dataManager: DataManager
     @State private var showingSignOutAlert = false
     @State private var showingDeleteAccountAlert = false
+    @State private var isDeletingAccount = false
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage = ""
     
     var body: some View {
         NavigationView {
@@ -113,11 +118,66 @@ struct SettingsView: View {
             }
             .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
                 Button("Delete", role: .destructive) {
-                    // TODO: Implement account deletion
+                    deleteAccount()
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
                 Text("This action cannot be undone. All your data will be permanently deleted.")
+            }
+            .alert("Error", isPresented: $showDeleteError) {
+                Button("OK") { }
+            } message: {
+                Text(deleteErrorMessage)
+            }
+            .disabled(isDeletingAccount)
+            .overlay(
+                isDeletingAccount ? ProgressView() : nil
+            )
+        }
+    }
+    
+    private func deleteAccount() {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        
+        isDeletingAccount = true
+        
+        Task {
+            do {
+                // First delete all user data from Firestore
+                let db = Firestore.firestore()
+                let batch = db.batch()
+                
+                // Delete user's subcollections
+                let collections = ["keyIndicators", "goals", "events", "tasks", "notes", "groups", "notifications"]
+                
+                for collection in collections {
+                    let snapshot = try await db.collection("users").document(userId).collection(collection).getDocuments()
+                    for doc in snapshot.documents {
+                        batch.deleteDocument(doc.reference)
+                    }
+                }
+                
+                // Delete user document
+                batch.deleteDocument(db.collection("users").document(userId))
+                
+                // Commit batch delete
+                try await batch.commit()
+                
+                // Delete Firebase Auth account
+                try await FirebaseService.shared.deleteUser()
+                
+                // Sign out and clean up
+                await MainActor.run {
+                    authViewModel.signOut()
+                    dataManager.removeListeners()
+                }
+                
+            } catch {
+                await MainActor.run {
+                    isDeletingAccount = false
+                    deleteErrorMessage = "Failed to delete account: \(error.localizedDescription)"
+                    showDeleteError = true
+                }
             }
         }
     }
@@ -364,8 +424,14 @@ struct HelpView: View {
 }
 
 struct FeedbackView: View {
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var feedbackText = ""
     @State private var feedbackType: FeedbackType = .general
+    @State private var isSubmitting = false
+    @State private var showSuccessAlert = false
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
     
     enum FeedbackType: String, CaseIterable {
         case general = "General"
@@ -391,7 +457,7 @@ struct FeedbackView: View {
                     .cornerRadius(8)
                 
                 Button("Send Feedback") {
-                    // TODO: Implement feedback sending
+                    sendFeedback()
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -405,6 +471,57 @@ struct FeedbackView: View {
             .padding()
             .navigationTitle("Send Feedback")
             .navigationBarTitleDisplayMode(.inline)
+            .disabled(isSubmitting)
+            .overlay(
+                isSubmitting ? ProgressView() : nil
+            )
+            .alert("Success", isPresented: $showSuccessAlert) {
+                Button("OK") {
+                    dismiss()
+                }
+            } message: {
+                Text("Thank you for your feedback! We'll review it soon.")
+            }
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK") { }
+            } message: {
+                Text(errorMessage)
+            }
+        }
+    }
+    
+    private func sendFeedback() {
+        guard !feedbackText.isEmpty,
+              let userId = authViewModel.currentUser?.id,
+              let userEmail = authViewModel.currentUser?.email else { return }
+        
+        isSubmitting = true
+        
+        let feedback: [String: Any] = [
+            "id": UUID().uuidString,
+            "userId": userId,
+            "userEmail": userEmail,
+            "type": feedbackType.rawValue,
+            "content": feedbackText,
+            "timestamp": Timestamp(date: Date()),
+            "status": "pending",
+            "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown",
+            "platform": "iOS",
+            "deviceModel": UIDevice.current.model
+        ]
+        
+        let db = Firestore.firestore()
+        db.collection("feedback").document(feedback["id"] as! String).setData(feedback) { [weak self] error in
+            DispatchQueue.main.async {
+                self?.isSubmitting = false
+                
+                if let error = error {
+                    self?.errorMessage = "Failed to send feedback: \(error.localizedDescription)"
+                    self?.showErrorAlert = true
+                } else {
+                    self?.showSuccessAlert = true
+                }
+            }
         }
     }
 }

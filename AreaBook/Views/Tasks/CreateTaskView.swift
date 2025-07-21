@@ -607,15 +607,60 @@ struct TaskTemplate: Identifiable {
 }
 
 // MARK: - Notification Manager
+import UserNotifications
+
 class NotificationManager {
     static let shared = NotificationManager()
     
     private init() {}
     
     func scheduleTaskReminder(for task: Task, at date: Date) {
-        // Implementation would use UNUserNotificationCenter
-        // This is a placeholder for the notification scheduling logic
-        print("Scheduling reminder for task: \(task.title) at \(date)")
+        // Request permission if needed
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            guard granted else { 
+                print("Notification permission denied")
+                return 
+            }
+            
+            // Create notification content
+            let content = UNMutableNotificationContent()
+            content.title = "Task Reminder"
+            content.body = task.title
+            content.sound = .default
+            
+            if let description = task.description {
+                content.subtitle = description
+            }
+            
+            // Add task info to userInfo for deep linking
+            content.userInfo = [
+                "taskId": task.id,
+                "type": "taskReminder"
+            ]
+            
+            // Create trigger
+            let calendar = Calendar.current
+            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            
+            // Create request
+            let requestId = "task-\(task.id)-reminder"
+            let request = UNNotificationRequest(identifier: requestId, content: content, trigger: trigger)
+            
+            // Schedule notification
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Error scheduling notification: \(error.localizedDescription)")
+                } else {
+                    print("Notification scheduled for task: \(task.title) at \(date)")
+                }
+            }
+        }
+    }
+    
+    func cancelTaskReminder(for taskId: String) {
+        let requestId = "task-\(taskId)-reminder"
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [requestId])
     }
 }
 

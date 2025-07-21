@@ -398,24 +398,28 @@ class DataManager: ObservableObject {
             return Calendar.current.isDate(dueDate, inSameDayAs: today)
         }
         
-        let todaysEvents = events.flatMap { event -> [CalendarEvent] in
-            if event.isRecurring, let pattern = event.recurrencePattern {
-                // Check if recurring event occurs today
-                if CalendarHelper.isRecurringEventOccursOnDate(event: event, pattern: pattern, date: today) {
-                    // Create a virtual occurrence for today
-                    var todayOccurrence = event
-                    todayOccurrence.startTime = CalendarHelper.combineDateWithTime(date: today, time: event.startTime)
-                    todayOccurrence.endTime = CalendarHelper.combineDateWithTime(date: today, time: event.endTime)
-                    return [todayOccurrence]
-                }
-            } else {
-                // Regular event - check if it's today
-                if Calendar.current.isDate(event.startTime, inSameDayAs: today) {
-                    return [event]
-                }
+        // More efficient: filter non-recurring events first, then check recurring ones
+        let regularTodayEvents = events.filter { event in
+            !event.isRecurring && Calendar.current.isDate(event.startTime, inSameDayAs: today)
+        }
+        
+        let recurringTodayEvents = events.compactMap { event -> CalendarEvent? in
+            guard event.isRecurring, let pattern = event.recurrencePattern else { return nil }
+            
+            // Skip if event hasn't started yet or has ended
+            if today < Calendar.current.startOfDay(for: event.startTime) { return nil }
+            if let endDate = pattern.endDate, today > endDate { return nil }
+            
+            if CalendarHelper.isRecurringEventOccursOnDate(event: event, pattern: pattern, date: today) {
+                var todayOccurrence = event
+                todayOccurrence.startTime = CalendarHelper.combineDateWithTime(date: today, time: event.startTime)
+                todayOccurrence.endTime = CalendarHelper.combineDateWithTime(date: today, time: event.endTime)
+                return todayOccurrence
             }
-            return []
-        }.sorted { $0.startTime < $1.startTime }
+            return nil
+        }
+        
+        let todaysEvents = (regularTodayEvents + recurringTodayEvents).sorted { $0.startTime < $1.startTime }
         
         let recentGoals = Array(goals.filter { $0.status == .active }
             .sorted { $0.updatedAt > $1.updatedAt }

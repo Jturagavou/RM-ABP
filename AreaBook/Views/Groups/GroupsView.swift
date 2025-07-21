@@ -5,6 +5,8 @@ struct GroupsView: View {
     @StateObject private var collaborationManager = CollaborationManager.shared
     @State private var showingCreateGroup = false
     @State private var showingJoinGroup = false
+    @State private var showError = false
+    @State private var errorMessage = ""
     @State private var selectedGroup: AccountabilityGroup?
     
     var body: some View {
@@ -108,6 +110,11 @@ struct GroupsView: View {
             }
             .sheet(item: $selectedGroup) { group in
                 GroupDetailView(group: group)
+            }
+            .alert("Error", isPresented: $showError) {
+                Button("OK") { }
+            } message: {
+                Text(errorMessage)
             }
         }
     }
@@ -476,8 +483,10 @@ struct CreateGroupView: View {
                     dismiss()
                 }
             } catch {
-                print("Error creating group: \(error)")
-                // TODO: Show error alert
+                await MainActor.run {
+                    self.errorMessage = "Failed to create group: \(error.localizedDescription)"
+                    self.showError = true
+                }
             }
             
             isCreating = false
@@ -494,6 +503,8 @@ struct JoinGroupView: View {
     
     @State private var invitationCode = ""
     @State private var isJoining = false
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     var body: some View {
         NavigationView {
@@ -535,6 +546,11 @@ struct JoinGroupView: View {
                     }
                 }
             }
+            .alert("Error", isPresented: $showError) {
+                Button("OK") { }
+            } message: {
+                Text(errorMessage)
+            }
         }
     }
     
@@ -557,8 +573,10 @@ struct JoinGroupView: View {
                     dismiss()
                 }
             } catch {
-                print("Error joining group: \(error)")
-                // TODO: Show error alert
+                await MainActor.run {
+                    self.errorMessage = "Failed to join group: \(error.localizedDescription)"
+                    self.showError = true
+                }
             }
             
             isJoining = false

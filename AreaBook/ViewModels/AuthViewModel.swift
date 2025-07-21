@@ -17,7 +17,16 @@ class AuthViewModel: ObservableObject {
     }
     
     private func setupAuthStateListener() {
-        Auth.auth().addStateDidChangeListener { [weak self] _, user in
+        // Ensure Firebase is configured before accessing Auth
+        guard let auth = FirebaseService.shared.auth else {
+            print("⚠️ Firebase not yet configured, deferring auth listener setup")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.setupAuthStateListener()
+            }
+            return
+        }
+        
+        auth.addStateDidChangeListener { [weak self] _, user in
             DispatchQueue.main.async {
                 if let user = user {
                     self?.loadUserData(for: user)

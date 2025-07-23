@@ -1,6 +1,0 @@
-{
-  "firestore": {
-    "rules": "AreaBook/Firebase/firestore.rules",
-    "indexes": "AreaBook/Firebase/firestore.indexes.json"
-  }
-} 

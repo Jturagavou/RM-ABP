@@ -20,14 +20,24 @@ struct CreateEventView: View {
     @State private var hasRecurrenceEndDate = false
     @State private var linkedTasks: [AppTask] = []
     @State private var showingTaskCreation = false
+    @State private var progressContributionString = ""
     
     let eventToEdit: CalendarEvent?
+    let defaultStart: Date?
+    let defaultEnd: Date?
     
-    private let categories = ["Personal", "Church", "School", "Work", "Family", "Health", "Other"]
+    @EnvironmentObject var colorThemeManager: ColorThemeManager
+    
+    private var categories: [String] {
+        authViewModel.currentUser?.settings.eventColorScheme.keys.map { String($0) } ?? ["Personal", "Work", "School", "Church"]
+    }
     private let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     
-    init(eventToEdit: CalendarEvent? = nil) {
+    init(eventToEdit: CalendarEvent? = nil, defaultStart: Date? = nil, defaultEnd: Date? = nil) {
         self.eventToEdit = eventToEdit
+        self.defaultStart = defaultStart
+        self.defaultEnd = defaultEnd
+        // SwiftUI @State workaround: set initial values in onAppear
     }
     
     var body: some View {
@@ -76,6 +86,35 @@ struct CreateEventView: View {
                             ForEach(dataManager.goals.filter { $0.status == .active }) { goal in
                                 Text(goal.title).tag(goal.id as String?)
                             }
+                        }
+                    }
+                }
+                
+                if let selectedGoalId = selectedGoalId, !selectedGoalId.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Progress Contribution")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        TextField("How much progress will this event contribute?", text: $progressContributionString)
+                            .keyboardType(.decimalPad)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .onChange(of: progressContributionString) { newValue in
+                                // Only allow numbers and decimal points
+                                let filtered = newValue.filter { "0123456789.".contains($0) }
+                                // Ensure only one decimal point
+                                let components = filtered.components(separatedBy: ".")
+                                if components.count > 2 {
+                                    progressContributionString = components[0] + "." + components.dropFirst().joined()
+                                } else {
+                                    progressContributionString = filtered
+                                }
+                            }
+                        
+                        if let goal = dataManager.goals.first(where: { $0.id == selectedGoalId }) {
+                            Text("Goal target: \(goal.targetValue, specifier: "%.1f") \(goal.unit)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -199,6 +238,12 @@ struct CreateEventView: View {
             .onAppear {
                 loadEventData()
                 setupDefaultRecurrence()
+                if let _ = eventToEdit {
+                    // Event editing logic would go here if needed
+                } else {
+                    if let start = defaultStart { startDate = start }
+                    if let end = defaultEnd { endDate = end }
+                }
             }
             .sheet(isPresented: $showingTaskCreation) {
                 CreateTaskForEventView { task in
@@ -226,6 +271,7 @@ struct CreateEventView: View {
         endDate = event.endTime
         selectedGoalId = event.linkedGoalId
         isRecurring = event.isRecurring
+        progressContributionString = event.progressContribution.map { String($0) } ?? ""
         
         if let pattern = event.recurrencePattern {
             recurrenceType = pattern.type
@@ -241,6 +287,7 @@ struct CreateEventView: View {
     
     private func saveEvent() {
         guard let userId = authViewModel.currentUser?.id else { return }
+        let progressContribution = Double(progressContributionString)
         
         // Create recurrence pattern if needed
         var recurrencePattern: RecurrencePattern?
@@ -261,7 +308,8 @@ struct CreateEventView: View {
                 category: category,
                 startTime: startDate,
                 endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
-                linkedGoalId: selectedGoalId
+                linkedGoalId: selectedGoalId,
+                progressContribution: progressContribution
             )
             // Set additional properties for existing event
             event.id = existingEvent.id
@@ -278,7 +326,8 @@ struct CreateEventView: View {
                 category: category,
                 startTime: startDate,
                 endTime: isAllDay ? Calendar.current.startOfDay(for: endDate.addingTimeInterval(86400)) : endDate,
-                linkedGoalId: selectedGoalId
+                linkedGoalId: selectedGoalId,
+                progressContribution: progressContribution
             )
             event.taskIds = linkedTasks.map { $0.id }
             event.isRecurring = isRecurring
@@ -536,5 +585,5 @@ class RecurringEventsGenerator {
 #Preview {
     CreateEventView()
         .environmentObject(DataManager.shared)
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
 }

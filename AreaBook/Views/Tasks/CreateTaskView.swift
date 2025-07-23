@@ -21,6 +21,7 @@ struct CreateTaskView: View {
     @State private var hasEstimatedDuration = false
     @State private var selectedDurationHours = 0
     @State private var selectedDurationMinutes = 30
+    @State private var progressContributionString = ""
     
     let taskToEdit: AppTask?
     
@@ -158,6 +159,35 @@ struct CreateTaskView: View {
                             Text(goal.title).tag(goal.id as String?)
                         }
                     }
+                    
+                    if let selectedGoalId = selectedGoalId, !selectedGoalId.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Progress Contribution")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            TextField("How much progress will this task contribute?", text: $progressContributionString)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .onChange(of: progressContributionString) { newValue in
+                                    // Only allow numbers and decimal points
+                                    let filtered = newValue.filter { "0123456789.".contains($0) }
+                                    // Ensure only one decimal point
+                                    let components = filtered.components(separatedBy: ".")
+                                    if components.count > 2 {
+                                        progressContributionString = components[0] + "." + components.dropFirst().joined()
+                                    } else {
+                                        progressContributionString = filtered
+                                    }
+                                }
+                            
+                            if let goal = dataManager.goals.first(where: { $0.id == selectedGoalId }) {
+                                Text("Goal target: \(goal.targetValue, specifier: "%.1f") \(goal.unit)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -276,7 +306,7 @@ struct CreateTaskView: View {
     
     private func saveTask() {
         guard let userId = authViewModel.currentUser?.id else { return }
-        
+        let progressContribution = Double(progressContributionString)
         let task: AppTask
         if let existingTask = taskToEdit {
             var t = AppTask(
@@ -285,7 +315,8 @@ struct CreateTaskView: View {
                 priority: priority,
                 dueDate: hasDueDate ? dueDate : nil,
                 linkedGoalId: selectedGoalId,
-                linkedEventId: selectedEventId
+                linkedEventId: selectedEventId,
+                progressContribution: progressContribution
             )
             t.id = existingTask.id
             t.status = existingTask.status
@@ -301,7 +332,8 @@ struct CreateTaskView: View {
                 priority: priority,
                 dueDate: hasDueDate ? dueDate : nil,
                 linkedGoalId: selectedGoalId,
-                linkedEventId: selectedEventId
+                linkedEventId: selectedEventId,
+                progressContribution: progressContribution
             )
             t.subtasks = subtasks
             task = t
@@ -648,5 +680,5 @@ class NotificationManager {
 #Preview {
     CreateTaskView()
         .environmentObject(DataManager.shared)
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
 }

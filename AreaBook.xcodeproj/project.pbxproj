@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -33,9 +33,33 @@
 		9BCE23CF2E7015ED5C93A6BC /* AuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667652B421176CFF6480A2E8 /* AuthenticationView.swift */; };
 		9CDDCFA729580043B9940B7B /* CreateKeyIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3334DAEDD81EE416C14B7DA0 /* CreateKeyIndicatorView.swift */; };
 		AE14239BE0BEE6DF3DCF88C0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 68F00DDCAB747F5F855FEB17 /* README.md */; };
+		B509DBAC2E27449A00465962 /* GPTService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B509DBAB2E27449A00465962 /* GPTService.swift */; };
+		B509DBAD2E27449A00465962 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B509DBAA2E27449A00465962 /* AIService.swift */; };
+		B509DBB02E2744C300465962 /* AISuggestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B509DBAF2E2744C300465962 /* AISuggestionsView.swift */; };
+		B509DBB12E2744C300465962 /* AIAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B509DBAE2E2744C300465962 /* AIAssistantView.swift */; };
+		B509DBB32E2744DD00465962 /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B509DBB22E2744DD00465962 /* AISettingsView.swift */; };
+		B53525BE2E293AC7008612C3 /* SiriIntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525BB2E293AC7008612C3 /* SiriIntentHandler.swift */; };
+		B53525BF2E293AC7008612C3 /* SiriAIAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525BA2E293AC7008612C3 /* SiriAIAgent.swift */; };
+		B53525C02E293AC7008612C3 /* WidgetDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525BD2E293AC7008612C3 /* WidgetDataService.swift */; };
+		B53525C12E293AC7008612C3 /* SiriService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525BC2E293AC7008612C3 /* SiriService.swift */; };
+		B53525C92E293FEF008612C3 /* WidgetDataUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525C62E293FEF008612C3 /* WidgetDataUtilities.swift */; };
+		B53525CA2E293FEF008612C3 /* WidgetPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525C72E293FEF008612C3 /* WidgetPreferences.swift */; };
+		B53525CB2E293FEF008612C3 /* WidgetConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525C32E293FEF008612C3 /* WidgetConfiguration.swift */; };
+		B53525CC2E293FEF008612C3 /* QueryIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525C22E293FEF008612C3 /* QueryIntent.swift */; };
+		B53525CD2E293FEF008612C3 /* WidgetDataKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525C42E293FEF008612C3 /* WidgetDataKeys.swift */; };
+		B53525CE2E293FEF008612C3 /* WidgetDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53525C52E293FEF008612C3 /* WidgetDataModels.swift */; };
+		B55DC93B2E29E14A00808E92 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B55DC93A2E29E14A00808E92 /* WidgetKit.framework */; };
+		B55DC93D2E29E14A00808E92 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B55DC93C2E29E14A00808E92 /* SwiftUI.framework */; };
+		B55DC94E2E29E14E00808E92 /* AreaBookWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B55DC9382E29E14A00808E92 /* AreaBookWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B5D813FA2E272B560008F241 /* ColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D813F92E272B560008F241 /* ColorTheme.swift */; };
+		B5D813FC2E272B680008F241 /* ColorSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D813FB2E272B680008F241 /* ColorSettingsView.swift */; };
+		B5D813FE2E2730770008F241 /* EventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D813FD2E2730770008F241 /* EventDetailView.swift */; };
 		B738344B6E2A5D9A27CEE52B /* GoalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9095F6013B8A5C6AA1E07E3D /* GoalsView.swift */; };
 		B7FB022EBBAC9137D31A8816 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FCF93F1B279EE4CE19D5C3D /* DashboardView.swift */; };
+		B8A1B2C3D4E5F6A7B8C9D0E1 /* GoalTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* GoalTimelineView.swift */; };
+		B9A2B3C4D5E6F7A8B9C0D1E2 /* GoalAnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F3 /* GoalAnalyticsView.swift */; };
 		C1FA691447C43065F307A61D /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A06215D88BDE5AB9021FD00F /* NotesView.swift */; };
+		C2FA691447C43065F307A61E /* CreateNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A16215D88BDE5AB9021FD00F /* CreateNoteView.swift */; };
 		C887BBA314D13690E21E1F63 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3450877591B95913F915697D /* Assets.xcassets */; };
 		D78A56ECBC6310CA504C93A0 /* CreateTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67F33F848064BB0D6A1850ED /* CreateTaskView.swift */; };
 		DCBC57B37F54AF896E206890 /* collaboration-data-pathways.md in Resources */ = {isa = PBXBuildFile; fileRef = 7E2FE3B7DC480E16451D8D9C /* collaboration-data-pathways.md */; };
@@ -47,6 +71,30 @@
 		F0398FB056AA5E83B451371D /* GroupsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 722683E9385C8C75ADEC51B3 /* GroupsView.swift */; };
 		FC42300CCA39DC587113F4CA /* UPDATED_FINAL_STATUS.md in Resources */ = {isa = PBXBuildFile; fileRef = 15F69D12BD4B7C1C2995BBC7 /* UPDATED_FINAL_STATUS.md */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B55DC94C2E29E14E00808E92 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 642C2809043A5FE3F1C7D3A0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B55DC9372E29E14A00808E92;
+			remoteInfo = AreaBookWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B55DC94F2E29E14E00808E92 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B55DC94E2E29E14E00808E92 /* AreaBookWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		076C0E85B2B3BB4694FD42DA /* TasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksView.swift; sourceTree = "<group>"; };
@@ -73,8 +121,32 @@
 		8C75EB1F1065226410BEC839 /* CreateEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateEventView.swift; sourceTree = "<group>"; };
 		9095F6013B8A5C6AA1E07E3D /* GoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalsView.swift; sourceTree = "<group>"; };
 		A06215D88BDE5AB9021FD00F /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
+		A16215D88BDE5AB9021FD00F /* CreateNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateNoteView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* GoalTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalTimelineView.swift; sourceTree = "<group>"; };
+		A2B3C4D5E6F7A8B9C0D1E2F3 /* GoalAnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalAnalyticsView.swift; sourceTree = "<group>"; };
 		AD41E28239D8655431BBB782 /* SETUP_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SETUP_GUIDE.md; sourceTree = "<group>"; };
+		B509DBAA2E27449A00465962 /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		B509DBAB2E27449A00465962 /* GPTService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPTService.swift; sourceTree = "<group>"; };
+		B509DBAE2E2744C300465962 /* AIAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantView.swift; sourceTree = "<group>"; };
+		B509DBAF2E2744C300465962 /* AISuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISuggestionsView.swift; sourceTree = "<group>"; };
+		B509DBB22E2744DD00465962 /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
+		B53525BA2E293AC7008612C3 /* SiriAIAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriAIAgent.swift; sourceTree = "<group>"; };
+		B53525BB2E293AC7008612C3 /* SiriIntentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntentHandler.swift; sourceTree = "<group>"; };
+		B53525BC2E293AC7008612C3 /* SiriService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriService.swift; sourceTree = "<group>"; };
+		B53525BD2E293AC7008612C3 /* WidgetDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDataService.swift; sourceTree = "<group>"; };
+		B53525C22E293FEF008612C3 /* QueryIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryIntent.swift; sourceTree = "<group>"; };
+		B53525C32E293FEF008612C3 /* WidgetConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetConfiguration.swift; sourceTree = "<group>"; };
+		B53525C42E293FEF008612C3 /* WidgetDataKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDataKeys.swift; sourceTree = "<group>"; };
+		B53525C52E293FEF008612C3 /* WidgetDataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDataModels.swift; sourceTree = "<group>"; };
+		B53525C62E293FEF008612C3 /* WidgetDataUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDataUtilities.swift; sourceTree = "<group>"; };
+		B53525C72E293FEF008612C3 /* WidgetPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPreferences.swift; sourceTree = "<group>"; };
 		B55453F13D3ABD98D7991295 /* AreaBookWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AreaBookWidget.swift; sourceTree = "<group>"; };
+		B55DC9382E29E14A00808E92 /* AreaBookWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AreaBookWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B55DC93A2E29E14A00808E92 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		B55DC93C2E29E14A00808E92 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		B5D813F92E272B560008F241 /* ColorTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorTheme.swift; sourceTree = "<group>"; };
+		B5D813FB2E272B680008F241 /* ColorSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorSettingsView.swift; sourceTree = "<group>"; };
+		B5D813FD2E2730770008F241 /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
 		B9516E2E422671A8EFFD8369 /* firestore.rules */ = {isa = PBXFileReference; lastKnownFileType = text; path = firestore.rules; sourceTree = "<group>"; };
 		C2D0167024CC19FD3D8F526F /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		CAFC8F208678433DE12B85F1 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -85,6 +157,20 @@
 		F13031FD59972AC2366F62F2 /* FINAL_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FINAL_STATUS.md; sourceTree = "<group>"; };
 		F7C04DE376E9843344BE075A /* CollaborationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollaborationManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B55DC9522E29E14E00808E92 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B55DC9372E29E14A00808E92 /* AreaBookWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		B55DC93E2E29E14A00808E92 /* AreaBookWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (B55DC9522E29E14E00808E92 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = AreaBookWidget; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A25535D4753641BEEBA71D4A /* Frameworks */ = {
@@ -100,6 +186,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B55DC9352E29E14A00808E92 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B55DC93D2E29E14A00808E92 /* SwiftUI.framework in Frameworks */,
+				B55DC93B2E29E14A00808E92 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -107,6 +202,7 @@
 			isa = PBXGroup;
 			children = (
 				51E7E9B7B129C911C40EB20D /* AreaBook.app */,
+				B55DC9382E29E14A00808E92 /* AreaBookWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -123,6 +219,8 @@
 			isa = PBXGroup;
 			children = (
 				A77E42D1B2455904475335DF /* AreaBook */,
+				B55DC93E2E29E14A00808E92 /* AreaBookWidget */,
+				B55DC9392E29E14A00808E92 /* Frameworks */,
 				0620FF41813973FB43EF4D4F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -156,6 +254,8 @@
 			children = (
 				532C5D94DB930217E1878B8D /* CreateGoalView.swift */,
 				9095F6013B8A5C6AA1E07E3D /* GoalsView.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* GoalTimelineView.swift */,
+				A2B3C4D5E6F7A8B9C0D1E2F3 /* GoalAnalyticsView.swift */,
 			);
 			path = Goals;
 			sourceTree = "<group>";
@@ -171,6 +271,7 @@
 		42EBEFEC3D68BC9A30D55677 /* Calendar */ = {
 			isa = PBXGroup;
 			children = (
+				B5D813FD2E2730770008F241 /* EventDetailView.swift */,
 				0F4C585650289035EE05756A /* CalendarView.swift */,
 				8C75EB1F1065226410BEC839 /* CreateEventView.swift */,
 			);
@@ -188,6 +289,12 @@
 		5599B716B4EE129340A85266 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				B53525BA2E293AC7008612C3 /* SiriAIAgent.swift */,
+				B53525BB2E293AC7008612C3 /* SiriIntentHandler.swift */,
+				B53525BC2E293AC7008612C3 /* SiriService.swift */,
+				B53525BD2E293AC7008612C3 /* WidgetDataService.swift */,
+				B509DBAA2E27449A00465962 /* AIService.swift */,
+				B509DBAB2E27449A00465962 /* GPTService.swift */,
 				F7C04DE376E9843344BE075A /* CollaborationManager.swift */,
 				5FF0BA978635B1CDE9CFE8D8 /* DataExportService.swift */,
 				E27BBBE36A1C67180707F363 /* DataManager.swift */,
@@ -200,6 +307,7 @@
 		882812455661E42189B603B4 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				B5D813F92E272B560008F241 /* ColorTheme.swift */,
 				5B85C1A92B77B8E7E2B56802 /* Models.swift */,
 			);
 			path = Models;
@@ -232,6 +340,7 @@
 		A77E42D1B2455904475335DF /* AreaBook */ = {
 			isa = PBXGroup;
 			children = (
+				B53525C82E293FEF008612C3 /* Shared */,
 				3450877591B95913F915697D /* Assets.xcassets */,
 				F13031FD59972AC2366F62F2 /* FINAL_STATUS.md */,
 				3A411F9B747E659B89D00A38 /* GoogleService-Info.plist */,
@@ -253,6 +362,37 @@
 			path = AreaBook;
 			sourceTree = "<group>";
 		};
+		B509DBB42E2744F000465962 /* AI */ = {
+			isa = PBXGroup;
+			children = (
+				B509DBAE2E2744C300465962 /* AIAssistantView.swift */,
+				B509DBAF2E2744C300465962 /* AISuggestionsView.swift */,
+			);
+			path = AI;
+			sourceTree = "<group>";
+		};
+		B53525C82E293FEF008612C3 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				B53525C22E293FEF008612C3 /* QueryIntent.swift */,
+				B53525C32E293FEF008612C3 /* WidgetConfiguration.swift */,
+				B53525C42E293FEF008612C3 /* WidgetDataKeys.swift */,
+				B53525C52E293FEF008612C3 /* WidgetDataModels.swift */,
+				B53525C62E293FEF008612C3 /* WidgetDataUtilities.swift */,
+				B53525C72E293FEF008612C3 /* WidgetPreferences.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		B55DC9392E29E14A00808E92 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B55DC93A2E29E14A00808E92 /* WidgetKit.framework */,
+				B55DC93C2E29E14A00808E92 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		BEE5C58BB2190DD86890E744 /* Firebase */ = {
 			isa = PBXGroup;
 			children = (
@@ -265,6 +405,7 @@
 			isa = PBXGroup;
 			children = (
 				A06215D88BDE5AB9021FD00F /* NotesView.swift */,
+				A16215D88BDE5AB9021FD00F /* CreateNoteView.swift */,
 			);
 			path = Notes;
 			sourceTree = "<group>";
@@ -289,6 +430,8 @@
 		E7412EE23E05166AF0308566 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				B509DBB22E2744DD00465962 /* AISettingsView.swift */,
+				B5D813FB2E272B680008F241 /* ColorSettingsView.swift */,
 				0B9913FC9938954F0E039067 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -299,6 +442,7 @@
 			children = (
 				CAFC8F208678433DE12B85F1 /* ContentView.swift */,
 				4CDE1F13F798E815787C0814 /* Auth */,
+				B509DBB42E2744F000465962 /* AI */,
 				42EBEFEC3D68BC9A30D55677 /* Calendar */,
 				097BE969C50FB75E987FADD8 /* Dashboard */,
 				3179626BE2404746C6819A3A /* Goals */,
@@ -315,6 +459,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B55DC9372E29E14A00808E92 /* AreaBookWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B55DC9532E29E14E00808E92 /* Build configuration list for PBXNativeTarget "AreaBookWidgetExtension" */;
+			buildPhases = (
+				B55DC9342E29E14A00808E92 /* Sources */,
+				B55DC9352E29E14A00808E92 /* Frameworks */,
+				B55DC9362E29E14A00808E92 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B55DC93E2E29E14A00808E92 /* AreaBookWidget */,
+			);
+			name = AreaBookWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = AreaBookWidgetExtension;
+			productReference = B55DC9382E29E14A00808E92 /* AreaBookWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		FC51B4BA8F5184422E8AE40E /* AreaBook */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8BE8FD482871ABA34CA5A239 /* Build configuration list for PBXNativeTarget "AreaBook" */;
@@ -322,10 +488,12 @@
 				F4799058E21747F8D6AFC858 /* Sources */,
 				4DC9D3AF31FA439028921BDB /* Resources */,
 				A25535D4753641BEEBA71D4A /* Frameworks */,
+				B55DC94F2E29E14E00808E92 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B55DC94D2E29E14E00808E92 /* PBXTargetDependency */,
 			);
 			name = AreaBook;
 			packageProductDependencies = (
@@ -347,7 +515,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					B55DC9372E29E14A00808E92 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+				};
 			};
 			buildConfigurationList = F65580E76719A0F83EE35A64 /* Build configuration list for PBXProject "AreaBook" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -366,6 +540,7 @@
 			projectRoot = "";
 			targets = (
 				FC51B4BA8F5184422E8AE40E /* AreaBook */,
+				B55DC9372E29E14A00808E92 /* AreaBookWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -388,13 +563,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B55DC9362E29E14A00808E92 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B55DC9342E29E14A00808E92 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F4799058E21747F8D6AFC858 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B5D813FE2E2730770008F241 /* EventDetailView.swift in Sources */,
 				3216FC1E4CF6073BB2330224 /* AreaBookApp.swift in Sources */,
 				6FCF1078B53DA9D370C03188 /* AreaBookWidget.swift in Sources */,
 				32495CE2EE347D8D249C283F /* AuthViewModel.swift in Sources */,
@@ -403,17 +593,37 @@
 				55105708230E5B719BFC34D8 /* CollaborationManager.swift in Sources */,
 				99A100D04C30C606AA41E001 /* ContentView.swift in Sources */,
 				5BF9C31A8418E68D974B1B0F /* CreateEventView.swift in Sources */,
+				B53525BE2E293AC7008612C3 /* SiriIntentHandler.swift in Sources */,
+				B53525BF2E293AC7008612C3 /* SiriAIAgent.swift in Sources */,
+				B53525C02E293AC7008612C3 /* WidgetDataService.swift in Sources */,
+				B53525C12E293AC7008612C3 /* SiriService.swift in Sources */,
 				3B16EAD86D340758EA1038A1 /* CreateGoalView.swift in Sources */,
+				B5D813FC2E272B680008F241 /* ColorSettingsView.swift in Sources */,
+				B5D813FA2E272B560008F241 /* ColorTheme.swift in Sources */,
 				9CDDCFA729580043B9940B7B /* CreateKeyIndicatorView.swift in Sources */,
 				D78A56ECBC6310CA504C93A0 /* CreateTaskView.swift in Sources */,
+				B53525C92E293FEF008612C3 /* WidgetDataUtilities.swift in Sources */,
+				B53525CA2E293FEF008612C3 /* WidgetPreferences.swift in Sources */,
+				B53525CB2E293FEF008612C3 /* WidgetConfiguration.swift in Sources */,
+				B53525CC2E293FEF008612C3 /* QueryIntent.swift in Sources */,
+				B53525CD2E293FEF008612C3 /* WidgetDataKeys.swift in Sources */,
+				B53525CE2E293FEF008612C3 /* WidgetDataModels.swift in Sources */,
 				B7FB022EBBAC9137D31A8816 /* DashboardView.swift in Sources */,
 				3C90578F7940B203D8C7DEA4 /* DataExportService.swift in Sources */,
+				B509DBAC2E27449A00465962 /* GPTService.swift in Sources */,
+				B509DBAD2E27449A00465962 /* AIService.swift in Sources */,
+				B509DBB02E2744C300465962 /* AISuggestionsView.swift in Sources */,
+				B509DBB12E2744C300465962 /* AIAssistantView.swift in Sources */,
 				15CBB41FB700171373EDCA94 /* DataManager.swift in Sources */,
 				649137140A480FDF318944C6 /* FirebaseService.swift in Sources */,
 				B738344B6E2A5D9A27CEE52B /* GoalsView.swift in Sources */,
+				B509DBB32E2744DD00465962 /* AISettingsView.swift in Sources */,
+				B8A1B2C3D4E5F6A7B8C9D0E1 /* GoalTimelineView.swift in Sources */,
+				B9A2B3C4D5E6F7A8B9C0D1E2 /* GoalAnalyticsView.swift in Sources */,
 				F0398FB056AA5E83B451371D /* GroupsView.swift in Sources */,
 				DCE3B7EF119B7F9F48C24204 /* Models.swift in Sources */,
 				C1FA691447C43065F307A61D /* NotesView.swift in Sources */,
+				C2FA691447C43065F307A61E /* CreateNoteView.swift in Sources */,
 				118611A71B15FF3245DD2E93 /* OnboardingFlow.swift in Sources */,
 				6F79BF98C0A45248C207D5CA /* SettingsView.swift in Sources */,
 				E7537FB5FCE649C93A427893 /* SiriShortcutsManager.swift in Sources */,
@@ -423,16 +633,101 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		B55DC94D2E29E14E00808E92 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B55DC9372E29E14A00808E92 /* AreaBookWidgetExtension */;
+			targetProxy = B55DC94C2E29E14E00808E92 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		B55DC9502E29E14E00808E92 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TUC8FV5WFR;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AreaBookWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AreaBookWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.areabook.ios.AreaBookWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B55DC9512E29E14E00808E92 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TUC8FV5WFR;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AreaBookWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AreaBookWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.areabook.ios.AreaBookWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		C52020D35D5D80D99076C185 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"AreaBook/Preview Content\"";
 				DEVELOPMENT_TEAM = TUC8FV5WFR;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = AreaBook/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Lower-Light";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -443,6 +738,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.areabook.ios;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -573,10 +869,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"AreaBook/Preview Content\"";
 				DEVELOPMENT_TEAM = TUC8FV5WFR;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = AreaBook/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Lower-Light";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -587,6 +886,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.areabook.ios;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -601,6 +901,15 @@
 			buildConfigurations = (
 				F67BC0F0C6774B3CA970D4EB /* Debug */,
 				C52020D35D5D80D99076C185 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B55DC9532E29E14E00808E92 /* Build configuration list for PBXNativeTarget "AreaBookWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B55DC9502E29E14E00808E92 /* Debug */,
+				B55DC9512E29E14E00808E92 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

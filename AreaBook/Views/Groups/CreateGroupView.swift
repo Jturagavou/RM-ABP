@@ -333,12 +333,9 @@ struct CreateGroupView: View {
         }
         .sheet(isPresented: $showingMemberPicker) {
             if let currentUserId = authViewModel.currentUser?.id {
-                UserSuggestionView(currentUserId: currentUserId)
+                UserSuggestionView(currentUserId: currentUserId, selectedMembers: $selectedMembers)
                     .environmentObject(dataManager)
-                    .onDisappear {
-                        // Update selectedMembers and memberSuggestions from UserSuggestionView
-                        // This requires a binding or callback in a real implementation
-                    }
+                    .environmentObject(authViewModel)
             } else {
                 Text("User not authenticated")
             }

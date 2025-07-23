@@ -646,5 +646,5 @@ extension Color {
 #Preview {
     CreateKeyIndicatorView()
         .environmentObject(DataManager.shared)
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
 }

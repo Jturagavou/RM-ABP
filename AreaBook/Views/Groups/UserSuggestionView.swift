@@ -2,12 +2,14 @@ import SwiftUI
 
 struct UserSuggestionView: View {
     @EnvironmentObject var dataManager: DataManager
+    @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var suggestions: [UserSuggestion] = []
-    @State private var selectedUsers: [UserSuggestion] = []
     let currentUserId: String
+    @Binding var selectedMembers: Set<String>
 
     var body: some View {
+        NavigationView {
         VStack {
             TextField("Search by name or email", text: $searchText)
                 .padding(8)
@@ -17,24 +19,7 @@ struct UserSuggestionView: View {
                 .onChange(of: searchText) { _ in
                     filterSuggestions()
                 }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
-                    ForEach(selectedUsers) { user in
-                        HStack {
-                            Text(user.name)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.blue.opacity(0.2))
-                                .cornerRadius(6)
-                            Button(action: { removeUser(user) }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.red)
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal)
-            }
+                
             List(filteredSuggestions) { user in
                 Button(action: { selectUser(user) }) {
                     HStack {
@@ -54,9 +39,19 @@ struct UserSuggestionView: View {
                             Text(user.email).font(.caption).foregroundColor(.secondary)
                         }
                         Spacer()
-                        if selectedUsers.contains(where: { $0.userId == user.userId }) {
+                            if selectedMembers.contains(user.userId) {
                             Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
                         }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add Members")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
                     }
                 }
             }
@@ -80,13 +75,15 @@ struct UserSuggestionView: View {
     }
 
     private func selectUser(_ user: UserSuggestion) {
-        if !selectedUsers.contains(where: { $0.userId == user.userId }) {
-            selectedUsers.append(user)
+        if !selectedMembers.contains(user.userId) {
+            selectedMembers.insert(user.userId)
+        } else {
+            selectedMembers.remove(user.userId)
         }
     }
 
     private func removeUser(_ user: UserSuggestion) {
-        selectedUsers.removeAll { $0.userId == user.userId }
+        selectedMembers.removeAll { $0 == user.userId }
     }
 
     private func filterSuggestions() {

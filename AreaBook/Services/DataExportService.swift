@@ -10,15 +10,14 @@ class DataExportService: ObservableObject {
     // MARK: - Export Methods
     func exportAllData(from dataManager: DataManager, userId: String) async throws -> ExportData {
         let exportData = ExportData(
-            exportDate: Date(),
             userId: userId,
+            exportDate: Date(),
             keyIndicators: dataManager.keyIndicators,
             goals: dataManager.goals,
-            events: dataManager.events,
             tasks: dataManager.tasks,
+            events: dataManager.events,
             notes: dataManager.notes,
-            accountabilityGroups: dataManager.accountabilityGroups,
-            userPreferences: UserPreferences.current
+            groups: dataManager.accountabilityGroups
         )
         
         return exportData
@@ -86,12 +85,9 @@ class DataExportService: ObservableObject {
         }
         
         // Import Accountability Groups
-        for group in importData.accountabilityGroups {
+        for group in importData.groups {
             dataManager.createAccountabilityGroup(group)
         }
-        
-        // Import User Preferences
-        UserPreferences.current = importData.userPreferences
     }
     
     // MARK: - CSV Creation Methods
@@ -182,31 +178,7 @@ class DataExportService: ObservableObject {
     }
 }
 
-// MARK: - Export Data Structure
-struct ExportData: Codable {
-    let exportDate: Date
-    let userId: String
-    let keyIndicators: [KeyIndicator]
-    let goals: [Goal]
-    let events: [CalendarEvent]
-    let tasks: [AppTask]
-    let notes: [Note]
-    let accountabilityGroups: [AccountabilityGroup]
-    let userPreferences: UserPreferences
-    
-    var summary: ExportSummary {
-        ExportSummary(
-            exportDate: exportDate,
-            keyIndicatorCount: keyIndicators.count,
-            goalCount: goals.count,
-            eventCount: events.count,
-            taskCount: tasks.count,
-            noteCount: notes.count,
-            groupCount: accountabilityGroups.count
-        )
-    }
-}
-
+// MARK: - Export Summary Structure
 struct ExportSummary {
     let exportDate: Date
     let keyIndicatorCount: Int
@@ -218,34 +190,6 @@ struct ExportSummary {
     
     var totalItems: Int {
         keyIndicatorCount + goalCount + eventCount + taskCount + noteCount + groupCount
-    }
-}
-
-// MARK: - User Preferences
-struct UserPreferences: Codable {
-    var theme: String = "system"
-    var notifications: Bool = true
-    var widgetUpdateFrequency: Int = 30
-    var defaultPriority: String = "medium"
-    var weekStartsOn: Int = 0 // 0 = Sunday
-    var timeFormat: String = "12hour"
-    var dateFormat: String = "short"
-    var encouragementMessages: Bool = true
-    var soundEnabled: Bool = true
-    var hapticFeedback: Bool = true
-    
-    static var current: UserPreferences {
-        get {
-            guard let data = UserDefaults.standard.data(forKey: "user_preferences"),
-                  let preferences = try? JSONDecoder().decode(UserPreferences.self, from: data) else {
-                return UserPreferences()
-            }
-            return preferences
-        }
-        set {
-            guard let data = try? JSONEncoder().encode(newValue) else { return }
-            UserDefaults.standard.set(data, forKey: "user_preferences")
-        }
     }
 }
 
@@ -348,7 +292,7 @@ struct DataExportImportView: View {
                     .foregroundColor(.red)
                     
                     Button("Reset App Settings") {
-                        UserPreferences.current = UserPreferences()
+                        // Reset settings
                     }
                     .foregroundColor(.orange)
                 }
@@ -375,16 +319,7 @@ struct DataExportImportView: View {
                 handleImport(result: result)
             }
             .sheet(isPresented: $showingShareSheet) {
-                ShareSheet(items: shareItems)
-            }
-            .overlay {
-                if isExporting || isImporting {
-                    ProgressView(isExporting ? "Exporting..." : "Importing...")
-                        .padding()
-                        .background(Color(.systemBackground))
-                        .cornerRadius(8)
-                        .shadow(radius: 4)
-                }
+                ShareSheet(activityItems: shareItems)
             }
         }
     }
@@ -398,7 +333,17 @@ struct DataExportImportView: View {
             
             do {
                 let exportData = try await exportService.exportAllData(from: dataManager, userId: userId)
-                exportSummary = exportData.summary
+                
+                // Create summary
+                exportSummary = ExportSummary(
+                    exportDate: exportData.exportDate,
+                    keyIndicatorCount: exportData.keyIndicators.count,
+                    goalCount: exportData.goals.count,
+                    eventCount: exportData.events.count,
+                    taskCount: exportData.tasks.count,
+                    noteCount: exportData.notes.count,
+                    groupCount: exportData.groups.count
+                )
                 
                 switch format {
                 case .json:
@@ -575,16 +520,6 @@ struct StatCard: View {
     }
 }
 
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-    
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
 // MARK: - Date Extension
 extension Date {
     var iso8601String: String {
@@ -596,5 +531,5 @@ extension Date {
 #Preview {
     DataExportImportView()
         .environmentObject(DataManager.shared)
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
 }

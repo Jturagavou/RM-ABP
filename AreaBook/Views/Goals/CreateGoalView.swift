@@ -14,6 +14,11 @@ struct CreateGoalView: View {
     @State private var showingColorPicker = false
     @State private var selectedStickyColor = "#FBBF24"
     @State private var newStickyText = ""
+    @State private var targetValueString = ""
+    
+    // Key Indicator Classification
+    @State private var isKeyIndicator = false
+    @State private var selectedResetTimeline: ResetTimeline = .weekly
     
     let goalToEdit: Goal?
     
@@ -61,6 +66,49 @@ struct CreateGoalView: View {
                                 set: { targetDate = $0 }
                             ), displayedComponents: [.date])
                             .datePickerStyle(WheelDatePickerStyle())
+                        }
+                    }
+                    
+                    // Target Value Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Target Value")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        TextField("Enter target value (e.g. 100)", text: $targetValueString)
+                            .keyboardType(.decimalPad)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    
+                    // Key Indicator Classification Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Key Indicator")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            Toggle("Mark as Key Indicator", isOn: $isKeyIndicator)
+                            
+                            if isKeyIndicator {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Reset Timeline")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    Text("How often should this Key Indicator reset its progress?")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Picker("Reset Timeline", selection: $selectedResetTimeline) {
+                                        ForEach(ResetTimeline.allCases, id: \.self) { timeline in
+                                            Text(timeline.displayName).tag(timeline)
+                                        }
+                                    }
+                                    .pickerStyle(SegmentedPickerStyle())
+                                }
+                                .padding()
+                                .background(Color.blue.opacity(0.05))
+                                .cornerRadius(8)
+                            }
                         }
                     }
                     
@@ -135,7 +183,7 @@ struct CreateGoalView: View {
                     Button("Save") {
                         saveGoal()
                     }
-                    .disabled(title.isEmpty)
+                    .disabled(title.isEmpty || Double(targetValueString) == nil)
                 }
             }
             .onAppear {
@@ -160,30 +208,56 @@ struct CreateGoalView: View {
         targetDate = goal.targetDate
         hasTargetDate = goal.targetDate != nil
         stickyNotes = goal.stickyNotes
+        targetValueString = String(goal.targetValue)
+        isKeyIndicator = goal.isKeyIndicator
+        selectedResetTimeline = goal.resetTimeline
     }
     
     private func saveGoal() {
         guard let userId = authViewModel.currentUser?.id else { return }
+        guard let targetValue = Double(targetValueString) else { return }
         
-        let goal: Goal
+        var goal: Goal
         if let existingGoal = goalToEdit {
-            // For editing, we need to create a new goal with the existing data
+            // For editing, create a new goal with updated properties
             goal = Goal(
                 title: title,
                 description: description,
                 keyIndicatorIds: Array(selectedKIIds),
-                targetDate: hasTargetDate ? targetDate : nil
+                targetDate: hasTargetDate ? targetDate : nil,
+                targetValue: targetValue
             )
-            // Copy the existing properties that we want to preserve
-            // Note: This is a limitation since Goal doesn't have a custom initializer for editing
-            // In a real app, you'd want to add an editing initializer to the Goal model
+            // Preserve the existing goal's ID and other properties
+            goal.id = existingGoal.id  // Preserve the ID
+            goal.progress = existingGoal.progress
+            goal.status = existingGoal.status
+            goal.createdAt = existingGoal.createdAt
+            goal.linkedNoteIds = existingGoal.linkedNoteIds
+            goal.currentValue = existingGoal.currentValue
+            goal.unit = existingGoal.unit
+            goal.progressType = existingGoal.progressType
+            goal.connectedKeyIndicatorId = existingGoal.connectedKeyIndicatorId
+            goal.progressAmount = existingGoal.progressAmount
+            goal.lastResetDate = existingGoal.lastResetDate
         } else {
+            // For creating new goal
             goal = Goal(
                 title: title,
                 description: description,
                 keyIndicatorIds: Array(selectedKIIds),
-                targetDate: hasTargetDate ? targetDate : nil
+                targetDate: hasTargetDate ? targetDate : nil,
+                targetValue: targetValue
             )
+        }
+        
+        // Set Key Indicator properties
+        goal.isKeyIndicator = isKeyIndicator
+        goal.resetTimeline = selectedResetTimeline
+        goal.stickyNotes = stickyNotes
+        
+        // If this is being marked as a Key Indicator for the first time, set initial reset date
+        if isKeyIndicator && goal.lastResetDate == nil {
+            goal.lastResetDate = Date()
         }
         
         if goalToEdit != nil {
@@ -334,20 +408,7 @@ struct StickyNoteCreationSheet: View {
                     Text("Color")
                         .font(.headline)
                     
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-                        ForEach(colors, id: \.self) { colorHex in
-                            Circle()
-                                .fill(Color(hex: colorHex) ?? .yellow)
-                                .frame(width: 40, height: 40)
-                                .overlay(
-                                    Circle()
-                                        .stroke(color == colorHex ? Color.black : Color.clear, lineWidth: 3)
-                                )
-                                .onTapGesture {
-                                    color = colorHex
-                                }
-                        }
-                    }
+                    colorSelectionGrid
                 }
                 
                 Spacer()
@@ -378,10 +439,31 @@ struct StickyNoteCreationSheet: View {
             }
         }
     }
+    
+    private var colorSelectionGrid: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
+            ForEach(colors, id: \.self) { colorHex in
+                colorCircle(for: colorHex)
+            }
+        }
+    }
+    
+    private func colorCircle(for colorHex: String) -> some View {
+        Circle()
+            .fill(Color(hex: colorHex) ?? .yellow)
+            .frame(width: 40, height: 40)
+            .overlay(
+                Circle()
+                    .stroke(color == colorHex ? Color.black : Color.clear, lineWidth: 3)
+            )
+            .onTapGesture {
+                color = colorHex
+            }
+    }
 }
 
 #Preview {
     CreateGoalView()
         .environmentObject(DataManager.shared)
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
 }

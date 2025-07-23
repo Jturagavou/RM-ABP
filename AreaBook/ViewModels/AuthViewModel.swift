@@ -2,18 +2,21 @@ import Foundation
 import Firebase
 import FirebaseAuth
 import Combine
+import WidgetKit
 import os.log
 
 class AuthViewModel: ObservableObject {
-    @Published var currentUser: User?
+    static let shared = AuthViewModel()
+    
     @Published var isAuthenticated = false
+    @Published var currentUser: User?
     @Published var isLoading = false
-    @Published var errorMessage = ""
     @Published var showError = false
+    @Published var errorMessage = ""
     
-    private var cancellables = Set<AnyCancellable>()
+    private var authStateListener: AuthStateDidChangeListenerHandle?
     
-    init() {
+    private init() {
         os_log("🔐 AuthViewModel: Initializing...", log: .default, type: .info)
         
         // Ensure Firebase is configured before accessing Auth
@@ -40,7 +43,7 @@ class AuthViewModel: ObservableObject {
             return
         }
         
-        Auth.auth().addStateDidChangeListener { [weak self] _, user in
+        authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             DispatchQueue.main.async {
                 os_log("🔐 AuthViewModel: Auth state changed - User: %{public}@", log: .default, type: .info, user?.uid ?? "nil")
                 os_log("🔐 AuthViewModel: User email: %{public}@", log: .default, type: .info, user?.email ?? "nil")
@@ -54,6 +57,9 @@ class AuthViewModel: ObservableObject {
                     os_log("🔐 AuthViewModel: No user found, clearing state...", log: .default, type: .info)
                     self?.currentUser = nil
                     self?.isAuthenticated = false
+                    
+                    // TEMPORARILY DISABLED: Clear widget data (might be causing crash)
+                    // self.clearWidgetDataOnSignout()
                 }
                 self?.isLoading = false
             }
@@ -62,72 +68,120 @@ class AuthViewModel: ObservableObject {
         os_log("🔐 AuthViewModel: Auth state listener setup complete", log: .default, type: .info)
     }
     
+    // MARK: - Widget Data Management
+    private func syncAuthenticationStateToWidgets() {
+        let status = WidgetDataUtilities.saveAuthenticationState(
+            userId: currentUser?.id,
+            isAuthenticated: isAuthenticated
+        )
+        
+        switch status {
+        case .success:
+            os_log("✅ AuthViewModel: Authentication state synced to widgets", log: .default, type: .info)
+        case .appGroupNotConfigured:
+            os_log("❌ AuthViewModel: CRITICAL - App group not configured for widgets!", log: .default, type: .error)
+        default:
+            os_log("❌ AuthViewModel: Failed to sync auth state to widgets: %{public}@", log: .default, type: .error, String(describing: status))
+        }
+    }
+    
+    private func clearWidgetDataOnSignout() {
+        os_log("🔄 AuthViewModel: Clearing widget data due to user signout", log: .default, type: .info)
+        
+        // Clear all widget data
+        WidgetDataUtilities.clearAllWidgetData()
+        
+        // Sync cleared auth state
+        let _ = WidgetDataUtilities.saveAuthenticationState(userId: nil, isAuthenticated: false)
+        
+        // Force widget reload to show empty state
+        WidgetCenter.shared.reloadAllTimelines()
+        
+        os_log("✅ AuthViewModel: Widget data cleared and timelines reloaded", log: .default, type: .info)
+    }
+    
     private func loadUserData(userId: String) {
         let db = FirebaseService.shared.db!
         os_log("🔐 AuthViewModel: Accessing Firestore at path: users/%{public}@", log: .default, type: .info, userId)
         
         db.collection("users").document(userId).getDocument { [weak self] document, error in
             guard let self = self else { return }
-            if let error = error {
-                os_log("❌ AuthViewModel: Error loading user data: %{public}@", log: .default, type: .error, error.localizedDescription)
-                self.isLoading = false
-                return
-            }
-            if let document = document, document.exists {
-                os_log("✅ AuthViewModel: User document exists for user: %{public}@", log: .default, type: .info, userId)
-                if let data = document.data() {
+            
+            DispatchQueue.main.async {
+                if let error = error {
+                    os_log("❌ AuthViewModel: Error loading user data: %{public}@", log: .default, type: .error, error.localizedDescription)
+                    self.isLoading = false
+                    return
+                }
+                if let document = document, document.exists {
+                    os_log("✅ AuthViewModel: User document exists for user: %{public}@", log: .default, type: .info, userId)
+                    
+                    // Log raw data for debugging
+                    if let data = document.data() {
+                        os_log("🔍 AuthViewModel: Raw Firestore data: %{public}@", log: .default, type: .info, String(describing: data))
+                    }
+                    
                     do {
-                        if !JSONSerialization.isValidJSONObject(data) {
-                            os_log("❌ AuthViewModel: data is not a valid JSON object: %{public}@", log: .default, type: .error, String(describing: data))
-                            self.showError("User data from Firestore is not valid JSON.")
-                            self.isLoading = false
-                            return
-                        }
-                        let userData = try JSONSerialization.data(withJSONObject: data)
-                        var user = try JSONDecoder().decode(User.self, from: userData)
-                        user.lastSeen = Date()
-                        
-                        os_log("✅ AuthViewModel: User data loaded successfully: %{public}@", log: .default, type: .info, user.name)
-                        os_log("✅ AuthViewModel: User ID: %{public}@", log: .default, type: .info, user.id)
-                        os_log("✅ AuthViewModel: User email: %{public}@", log: .default, type: .info, user.email)
+                        let user = try document.data(as: User.self)
+                        os_log("✅ AuthViewModel: Successfully decoded user data for: %{public}@", log: .default, type: .info, user.name)
                         self.currentUser = user
                         self.isAuthenticated = true
                         self.isLoading = false
+                        os_log("✅ AuthViewModel: User authentication state updated - isAuthenticated: true", log: .default, type: .info)
                         
-                        // Update last seen
-                        self.updateLastSeen()
+                        // FIXED: Sync authentication state to widgets with improved error handling
+                        self.syncAuthenticationStateToWidgets()
                     } catch {
                         os_log("❌ AuthViewModel: Failed to decode user data: %{public}@", log: .default, type: .error, error.localizedDescription)
                         os_log("❌ AuthViewModel: Decoding error: %{public}@", log: .default, type: .error, String(describing: error))
-                        self.showError("Failed to decode user data: \(error.localizedDescription)")
-                        self.isLoading = false
+                        
+                        // Try to create a user document with current Firebase Auth user data
+                        guard let firebaseUser = Auth.auth().currentUser else {
+                            os_log("❌ AuthViewModel: No Firebase user found when creating document", log: .default, type: .error)
+                            self.signOut()
+                            self.isLoading = false
+                            return
+                        }
+                        
+                        self.createUserDocument(
+                            userId: userId,
+                            email: firebaseUser.email ?? "",
+                            name: firebaseUser.displayName ?? "User",
+                            avatar: firebaseUser.photoURL?.absoluteString
+                        )
                     }
+                } else {
+                    os_log("⚠️ AuthViewModel: User document doesn't exist for user: %{public}@", log: .default, type: .error, userId)
+                    os_log("⚠️ AuthViewModel: Attempting to create user document for user: %{public}@", log: .default, type: .info, userId)
+                    
+                    // Get the current Firebase Auth user to create the document
+                    guard let firebaseUser = Auth.auth().currentUser else {
+                        os_log("❌ AuthViewModel: No Firebase user found when creating document", log: .default, type: .error)
+                        self.signOut()
+                        self.isLoading = false
+                        return
+                    }
+                    
+                    self.createUserDocument(
+                        userId: userId,
+                        email: firebaseUser.email ?? "",
+                        name: firebaseUser.displayName ?? "User",
+                        avatar: firebaseUser.photoURL?.absoluteString
+                    )
                 }
-            } else {
-                os_log("⚠️ AuthViewModel: User document doesn't exist for user: %{public}@", log: .default, type: .error, userId)
-                os_log("⚠️ AuthViewModel: Attempting to create user document for user: %{public}@", log: .default, type: .info, userId)
-                self.createUserDocument(userId: userId)
             }
         }
     }
 
-    private func createUserDocument(userId: String) {
+    private func createUserDocument(userId: String, email: String, name: String, avatar: String? = nil) {
         let db = FirebaseService.shared.db!
         let userRef = db.collection("users").document(userId)
         
-        // Get the current Firebase Auth user to get email and other info
-        guard let firebaseUser = Auth.auth().currentUser else {
-            os_log("❌ AuthViewModel: No Firebase user found when creating document", log: .default, type: .error)
-            self.signOut()
-            self.isLoading = false
-            return
-        }
-        
         let user = User(
             id: userId,
-            email: firebaseUser.email ?? "",
-            name: firebaseUser.displayName ?? "",
-            avatar: firebaseUser.photoURL?.absoluteString,
+            email: email,
+            name: name,
+            avatar: avatar,
             createdAt: Date(),
             lastSeen: Date(),
             settings: UserSettings()
@@ -142,23 +196,29 @@ class AuthViewModel: ObservableObject {
             
             userRef.setData(userDict) { [weak self] error in
                 guard let self = self else { return }
-                if let error = error {
-                    os_log("❌ AuthViewModel: Error creating user document: %{public}@", log: .default, type: .error, error.localizedDescription)
-                    // Only sign out if we fail to create the document
-                    self.signOut()
-                    self.isLoading = false
-                } else {
-                    os_log("✅ AuthViewModel: Successfully created user document for user: %{public}@", log: .default, type: .info, userId)
-                    // Set the current user and authenticated state
-                    self.currentUser = user
-                    self.isAuthenticated = true
-                    self.isLoading = false
-                    os_log("✅ AuthViewModel: User document creation complete", log: .default, type: .info)
+                
+                DispatchQueue.main.async {
+                    if let error = error {
+                        os_log("❌ AuthViewModel: Error creating user document: %{public}@", log: .default, type: .error, error.localizedDescription)
+                        // Only sign out if we fail to create the document
+                        self.signOut()
+                        self.isLoading = false
+                    } else {
+                        os_log("✅ AuthViewModel: Successfully created user document for user: %{public}@", log: .default, type: .info, userId)
+                        // Set the current user and authenticated state
+                        self.currentUser = user
+                        self.isAuthenticated = true
+                        self.isLoading = false
+                        os_log("✅ AuthViewModel: User document creation complete - isAuthenticated: true", log: .default, type: .info)
+                        
+                        // FIXED: Sync authentication state to widgets after user creation
+                        self.syncAuthenticationStateToWidgets()
+                    }
                 }
             }
         } catch {
             os_log("❌ AuthViewModel: Failed to create user document: %{public}@", log: .default, type: .error, error.localizedDescription)
-            self.showError("Failed to create user document: \(error.localizedDescription)")
+            self.showError("Failed to create user document: \(error.localizedDescription)", suggestion: "Try again or contact support.")
             self.isLoading = false
         }
     }
@@ -175,7 +235,7 @@ class AuthViewModel: ObservableObject {
                 if let error = error {
                     os_log("❌ AuthViewModel: Sign in error: %{public}@", log: .default, type: .error, error.localizedDescription)
                     os_log("❌ AuthViewModel: Error code: %{public}d", log: .default, type: .error, error._code)
-                    self?.showError(error.localizedDescription)
+                    self?.showError("Failed to sign in. \(error.localizedDescription)", suggestion: "Check your email and password, or try again later.")
                 } else {
                     os_log("✅ AuthViewModel: Sign in successful", log: .default, type: .info)
                     // User data will be loaded automatically by the auth state listener
@@ -196,13 +256,13 @@ class AuthViewModel: ObservableObject {
                 if let error = error {
                     os_log("❌ AuthViewModel: Sign up error: %{public}@", log: .default, type: .error, error.localizedDescription)
                     os_log("❌ AuthViewModel: Error code: %{public}d", log: .default, type: .error, error._code)
-                    self?.showError(error.localizedDescription)
+                    self?.showError("Failed to sign up. \(error.localizedDescription)", suggestion: "Try again or contact support.")
                     return
                 }
                 
                 guard let firebaseUser = result?.user else {
                     os_log("❌ AuthViewModel: Failed to create user", log: .default, type: .error)
-                    self?.showError("Failed to create user")
+                    self?.showError("Failed to create user", suggestion: "Try again or contact support.")
                     return
                 }
                 
@@ -219,21 +279,28 @@ class AuthViewModel: ObservableObject {
                     }
                 }
                 
-                self?.createUserDocument(userId: firebaseUser.uid)
+                self?.createUserDocument(userId: firebaseUser.uid, email: firebaseUser.email ?? "", name: name, avatar: firebaseUser.photoURL?.absoluteString)
             }
         }
     }
     
     func signOut() {
-        os_log("🔐 AuthViewModel: Signing out...", log: .default, type: .info)
+        os_log("🔐 AuthViewModel: Attempting sign out", log: .default, type: .info)
+        
         do {
             try Auth.auth().signOut()
+            os_log("✅ AuthViewModel: Sign out successful", log: .default, type: .info)
+            
+            // Clear local state
             currentUser = nil
             isAuthenticated = false
-            os_log("✅ AuthViewModel: Sign out successful", log: .default, type: .info)
+            
+            // FIXED: Clear widget data immediately on signout
+            clearWidgetDataOnSignout()
+            
         } catch {
-            os_log("❌ AuthViewModel: Failed to sign out: %{public}@", log: .default, type: .error, error.localizedDescription)
-            showError("Failed to sign out: \(error.localizedDescription)")
+            os_log("❌ AuthViewModel: Sign out error: %{public}@", log: .default, type: .error, error.localizedDescription)
+            showError(error.localizedDescription)
         }
     }
     
@@ -247,10 +314,14 @@ class AuthViewModel: ObservableObject {
                 
                 if let error = error {
                     os_log("❌ AuthViewModel: Password reset error: %{public}@", log: .default, type: .error, error.localizedDescription)
-                    self?.showError(error.localizedDescription)
+                    self?.showError(error.localizedDescription, suggestion: "Check your email address and try again.")
                 } else {
                     os_log("✅ AuthViewModel: Password reset email sent successfully", log: .default, type: .info)
-                    self?.showError("Password reset email sent successfully", isError: false)
+                    // For success messages, set the message directly instead of using showError
+                    DispatchQueue.main.async {
+                        self?.errorMessage = "Password reset email sent successfully"
+                        self?.showError = true
+                    }
                 }
             }
         }
@@ -299,13 +370,70 @@ class AuthViewModel: ObservableObject {
         }
     }
     
-    private func showError(_ message: String, isError: Bool = true) {
-        errorMessage = message
+    private func showError(_ message: String, suggestion: String? = nil) {
+        if let suggestion = suggestion {
+            errorMessage = "\(message)\nSuggestion: \(suggestion)"
+        } else {
+            errorMessage = message
+        }
         showError = true
         
         // Auto-hide after 3 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             self.showError = false
+        }
+    }
+    
+    func deleteUserAccount(completion: @escaping (Bool) -> Void) {
+        guard let currentUser = currentUser else {
+            os_log("⚠️ AuthViewModel: No current user for account deletion", log: .default, type: .error)
+            completion(false)
+            return
+        }
+        
+        os_log("🔐 AuthViewModel: Deleting account for user: %{public}@", log: .default, type: .info, currentUser.id)
+        isLoading = true
+        
+        // First delete the user document from Firestore
+        let db = FirebaseService.shared.db!
+        db.collection("users").document(currentUser.id).delete { [weak self] error in
+            if let error = error {
+                os_log("❌ AuthViewModel: Failed to delete user document: %{public}@", log: .default, type: .error, error.localizedDescription)
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    self?.showError("Failed to delete user data: \(error.localizedDescription)", suggestion: "Try again or contact support.")
+                    completion(false)
+                }
+                return
+            }
+            
+            // Then delete the Firebase Auth account
+            guard let firebaseUser = Auth.auth().currentUser else {
+                os_log("❌ AuthViewModel: No Firebase user found for deletion", log: .default, type: .error)
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    self?.showError("No user account found", suggestion: "Try again or contact support.")
+                    completion(false)
+                }
+                return
+            }
+            
+            firebaseUser.delete { error in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    
+                    if let error = error {
+                        os_log("❌ AuthViewModel: Failed to delete Firebase account: %{public}@", log: .default, type: .error, error.localizedDescription)
+                        self?.showError("Failed to delete account: \(error.localizedDescription)", suggestion: "Try again or contact support.")
+                        completion(false)
+                    } else {
+                        os_log("✅ AuthViewModel: Account deleted successfully", log: .default, type: .info)
+                        self?.currentUser = nil
+                        self?.isAuthenticated = false
+                        completion(true)
+                    }
+                }
+            }
         }
     }
 }

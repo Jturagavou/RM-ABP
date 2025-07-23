@@ -20,44 +20,31 @@ struct AreaBookWidgetProvider: TimelineProvider {
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
         loadWidgetData { entry in
-            // Update every 30 minutes
-            let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: Date())!
+            // Update every 5 minutes for more responsive widgets
+            let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date())!
             let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+            print("🔄 WidgetProvider: Timeline created with next update at \(nextUpdate)")
             completion(timeline)
         }
     }
     
     private func loadWidgetData(completion: @escaping (AreaBookWidgetEntry) -> Void) {
-        // Load data from UserDefaults (shared with main app)
-        let sharedDefaults = UserDefaults(suiteName: "group.com.areabook.app")
-        
-        let keyIndicatorsData = sharedDefaults?.data(forKey: "keyIndicators") ?? Data()
-        let tasksData = sharedDefaults?.data(forKey: "todaysTasks") ?? Data()
-        let eventsData = sharedDefaults?.data(forKey: "todaysEvents") ?? Data()
-        
-        var keyIndicators: [KeyIndicator] = []
-        var tasks: [AppTask] = []
-        var events: [CalendarEvent] = []
-        
-        do {
-            if !keyIndicatorsData.isEmpty {
-                keyIndicators = try JSONDecoder().decode([KeyIndicator].self, from: keyIndicatorsData)
-            }
-            if !tasksData.isEmpty {
-                tasks = try JSONDecoder().decode([AppTask].self, from: tasksData)
-            }
-            if !eventsData.isEmpty {
-                events = try JSONDecoder().decode([CalendarEvent].self, from: eventsData)
-            }
-        } catch {
-            print("Error decoding widget data: \(error)")
-        }
+        // Load data from shared UserDefaults using utilities
+        let keyIndicators = WidgetDataUtilities.loadData([KeyIndicator].self, forKey: WidgetDataKeys.keyIndicators) ?? []
+        let tasks = WidgetDataUtilities.loadData([AppTask].self, forKey: WidgetDataKeys.todaysTasks) ?? []
+        let events = WidgetDataUtilities.loadData([CalendarEvent].self, forKey: WidgetDataKeys.todaysEvents) ?? []
+        let goals = WidgetDataUtilities.loadData([Goal].self, forKey: WidgetDataKeys.goals) ?? []
+        let notes = WidgetDataUtilities.loadData([Note].self, forKey: WidgetDataKeys.recentNotes) ?? []
+        let wellnessData = WidgetDataUtilities.loadData(WellnessData.self, forKey: WidgetDataKeys.wellnessData) ?? WellnessData()
         
         let entry = AreaBookWidgetEntry(
             date: Date(),
             keyIndicators: keyIndicators,
             todaysTasks: tasks,
-            todaysEvents: events
+            todaysEvents: events,
+            goals: goals,
+            notes: notes,
+            wellnessData: wellnessData
         )
         
         completion(entry)
@@ -68,19 +55,24 @@ struct AreaBookWidgetProvider: TimelineProvider {
 struct AreaBookWidgetEntry: TimelineEntry {
     let date: Date
     let keyIndicators: [KeyIndicator]
-            let todaysTasks: [AppTask]
+    let todaysTasks: [AppTask]
     let todaysEvents: [CalendarEvent]
+    let goals: [Goal]
+    let notes: [Note]
+    let wellnessData: WellnessData
     
     static let placeholder = AreaBookWidgetEntry(
         date: Date(),
         keyIndicators: [
             KeyIndicator(name: "Scripture Study", weeklyTarget: 7, unit: "sessions", color: "#3B82F6"),
-            KeyIndicator(name: "Prayer", weeklyTarget: 14, unit: "times", color: "#10B981")
+            KeyIndicator(name: "Prayer", weeklyTarget: 14, unit: "times", color: "#10B981"),
+            KeyIndicator(name: "Exercise", weeklyTarget: 5, unit: "sessions", color: "#F59E0B")
         ],
-                    todaysTasks: [
-                AppTask(title: "Complete morning study", priority: .high),
-                AppTask(title: "Review goals", priority: .medium)
-            ],
+        todaysTasks: [
+            AppTask(title: "Complete morning study", priority: .high),
+            AppTask(title: "Review goals", priority: .medium),
+            AppTask(title: "Exercise routine", priority: .low)
+        ],
         todaysEvents: [
             CalendarEvent(
                 title: "Sunday School",
@@ -88,10 +80,33 @@ struct AreaBookWidgetEntry: TimelineEntry {
                 category: "Church",
                 startTime: Date(),
                 endTime: Calendar.current.date(byAdding: .hour, value: 1, to: Date())!
+            ),
+            CalendarEvent(
+                title: "Team Meeting",
+                description: "Weekly sync",
+                category: "Work",
+                startTime: Calendar.current.date(byAdding: .hour, value: 2, to: Date())!,
+                endTime: Calendar.current.date(byAdding: .hour, value: 3, to: Date())!
             )
-        ]
+        ],
+        goals: [
+            Goal(title: "Read 12 books this year", description: "Personal development", targetDate: Calendar.current.date(byAdding: .month, value: 6, to: Date())!, targetValue: 12.0, unit: "books"),
+            Goal(title: "Run a marathon", description: "Fitness goal", targetDate: Calendar.current.date(byAdding: .month, value: 3, to: Date())!, targetValue: 26.2, unit: "miles")
+        ],
+        notes: [
+            Note(title: "Project ideas", content: "New app concepts..."),
+            Note(title: "Meeting notes", content: "Key points from today...")
+        ],
+        wellnessData: WellnessData(
+            currentMood: MoodType.good,
+            meditationMinutes: 15,
+            waterGlasses: 6,
+            sleepHours: 7.5
+        )
     )
 }
+
+
 
 // MARK: - Small Widget View
 struct SmallWidgetView: View {
@@ -100,9 +115,10 @@ struct SmallWidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: "book.pages")
-                    .foregroundColor(.blue)
-                    .font(.caption)
+                Image("AppLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 16, height: 16)
                 Text("AreaBook")
                     .font(.caption)
                     .fontWeight(.semibold)
@@ -165,8 +181,10 @@ struct MediumWidgetView: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             HStack {
-                Image(systemName: "book.pages")
-                    .foregroundColor(.blue)
+                Image("AppLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 16, height: 16)
                 Text("AreaBook")
                     .font(.headline)
                     .fontWeight(.semibold)
@@ -258,9 +276,10 @@ struct LargeWidgetView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
-                Image(systemName: "book.pages")
-                    .foregroundColor(.blue)
-                    .font(.title3)
+                Image("AppLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 16, height: 16)
                 VStack(alignment: .leading) {
                     Text("AreaBook")
                         .font(.title2)
@@ -372,6 +391,199 @@ struct LargeWidgetView: View {
                     }
                 }
             }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+    }
+}
+
+// MARK: - Wellness Widget
+struct WellnessWidget: Widget {
+    let kind: String = "WellnessWidget"
+    
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: AreaBookWidgetProvider()) { entry in
+            WellnessWidgetEntryView(entry: entry)
+        }
+        .configurationDisplayName("Wellness Tracker")
+        .description("Track your mood, meditation, and wellness activities.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct WellnessWidgetEntryView: View {
+    var entry: AreaBookWidgetProvider.Entry
+    @Environment(\.widgetFamily) var family
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "heart.fill")
+                    .foregroundColor(.pink)
+                Text("Wellness")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            
+            if family == .systemSmall {
+                // Compact wellness view
+                VStack(spacing: 8) {
+                    HStack {
+                        Text(entry.wellnessData.currentMood.emoji)
+                            .font(.title2)
+                        Text(entry.wellnessData.currentMood.displayName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    
+                    HStack {
+                        VStack {
+                            Text("\(entry.wellnessData.meditationMinutes)")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                            Text("min")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack {
+                            Text("\(entry.wellnessData.waterGlasses)")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                            Text("glasses")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            } else {
+                // Medium wellness view
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Mood: \(entry.wellnessData.currentMood.emoji) \(entry.wellnessData.currentMood.displayName)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 16) {
+                        WellnessMetric(
+                            icon: "timer",
+                            value: "\(entry.wellnessData.meditationMinutes)",
+                            label: "Meditation",
+                            color: .blue
+                        )
+                        
+                        WellnessMetric(
+                            icon: "drop.fill",
+                            value: "\(entry.wellnessData.waterGlasses)",
+                            label: "Water",
+                            color: .cyan
+                        )
+                        
+                        WellnessMetric(
+                            icon: "bed.double.fill",
+                            value: String(format: "%.1f", entry.wellnessData.sleepHours),
+                            label: "Sleep",
+                            color: .purple
+                        )
+                    }
+                }
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(Color(.systemBackground))
+    }
+}
+
+struct WellnessMetric: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+                .font(.caption)
+            
+            Text(value)
+                .font(.headline)
+                .fontWeight(.bold)
+            
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Goals Widget
+struct GoalsWidget: Widget {
+    let kind: String = "GoalsWidget"
+    
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: AreaBookWidgetProvider()) { entry in
+            GoalsWidgetEntryView(entry: entry)
+        }
+        .configurationDisplayName("Goal Progress")
+        .description("Track your goal progress and achievements.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct GoalsWidgetEntryView: View {
+    var entry: AreaBookWidgetProvider.Entry
+    @Environment(\.widgetFamily) var family
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "target")
+                    .foregroundColor(.purple)
+                Text("Goals")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            
+            if entry.goals.isEmpty {
+                Text("No active goals")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(entry.goals.prefix(family == .systemSmall ? 2 : 3)) { goal in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(goal.title)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text("\(Int(goal.calculatedProgress))%")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.blue)
+                            }
+                            
+                            ProgressView(value: Double(goal.calculatedProgress) / 100.0)
+                                .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                                .scaleEffect(y: 0.5)
+                        }
+                    }
+                }
+            }
+            
+            Spacer()
         }
         .padding()
         .background(Color(.systemBackground))
@@ -498,6 +710,9 @@ struct AreaBookWidgetBundle: WidgetBundle {
     var body: some Widget {
         AreaBookWidget()
         KIProgressWidget()
+        WellnessWidget()
+        // TasksWidget() // Removed as per edit hint
+        GoalsWidget()
     }
 }
 
@@ -524,6 +739,30 @@ struct AreaBookWidget_Previews: PreviewProvider {
             KIProgressWidgetEntryView(entry: AreaBookWidgetEntry.placeholder)
                 .previewContext(WidgetPreviewContext(family: .systemMedium))
                 .previewDisplayName("KI Medium")
+            
+            WellnessWidgetEntryView(entry: AreaBookWidgetEntry.placeholder)
+                .previewContext(WidgetPreviewContext(family: .systemSmall))
+                .previewDisplayName("Wellness Small")
+            
+            WellnessWidgetEntryView(entry: AreaBookWidgetEntry.placeholder)
+                .previewContext(WidgetPreviewContext(family: .systemMedium))
+                .previewDisplayName("Wellness Medium")
+            
+            // TasksWidgetEntryView(entry: AreaBookWidgetEntry.placeholder) // Removed as per edit hint
+            //     .previewContext(WidgetPreviewContext(family: .systemSmall))
+            //     .previewDisplayName("Tasks Small")
+            
+            // TasksWidgetEntryView(entry: AreaBookWidgetEntry.placeholder) // Removed as per edit hint
+            //     .previewContext(WidgetPreviewContext(family: .systemMedium))
+            //     .previewDisplayName("Tasks Medium")
+            
+            GoalsWidgetEntryView(entry: AreaBookWidgetEntry.placeholder)
+                .previewContext(WidgetPreviewContext(family: .systemSmall))
+                .previewDisplayName("Goals Small")
+            
+            GoalsWidgetEntryView(entry: AreaBookWidgetEntry.placeholder)
+                .previewContext(WidgetPreviewContext(family: .systemMedium))
+                .previewDisplayName("Goals Medium")
         }
     }
 }

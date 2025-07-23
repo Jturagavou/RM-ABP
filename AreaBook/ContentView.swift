@@ -21,36 +21,33 @@ struct ContentView: View {
             }
         }
         .overlay(
-            // Error message overlay
-            Group {
+            // Toast notifications
+            VStack {
                 if authViewModel.showError {
-                    VStack {
-                        Spacer()
-                        Text(authViewModel.errorMessage)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.red.opacity(0.8))
-                            .cornerRadius(10)
-                            .padding()
+                    ToastView(
+                        message: authViewModel.errorMessage,
+                        type: .error,
+                        isShowing: $authViewModel.showError
+                    )
+                    .onAppear {
+                        HapticManager.shared.error()
                     }
-                    .transition(.move(edge: .bottom))
-                    .animation(.easeInOut, value: authViewModel.showError)
                 }
                 
                 if dataManager.showError {
-                    VStack {
-                        Spacer()
-                        Text(dataManager.errorMessage)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.red.opacity(0.8))
-                            .cornerRadius(10)
-                            .padding()
+                    ToastView(
+                        message: dataManager.errorMessage,
+                        type: .error,
+                        isShowing: $dataManager.showError
+                    )
+                    .onAppear {
+                        HapticManager.shared.error()
                     }
-                    .transition(.move(edge: .bottom))
-                    .animation(.easeInOut, value: dataManager.showError)
                 }
+                
+                Spacer()
             }
+            .animation(.smoothAppear, value: authViewModel.showError || dataManager.showError)
         )
     }
 }
@@ -86,6 +83,28 @@ struct MainTabView: View {
             case .tasks: return "checkmark.square.fill"
             case .notes: return "doc.text.fill"
             case .settings: return "gear"
+            }
+        }
+        
+        var createIcon: String {
+            switch self {
+            case .dashboard: return "plus"
+            case .goals: return "flag.badge.plus"
+            case .calendar: return "calendar.badge.plus"
+            case .tasks: return "checkmark.square.badge.plus"
+            case .notes: return "doc.text.badge.plus"
+            case .settings: return "plus"
+            }
+        }
+        
+        var accentColor: Color {
+            switch self {
+            case .dashboard: return .blue
+            case .goals: return .orange
+            case .calendar: return .purple
+            case .tasks: return .green
+            case .notes: return .indigo
+            case .settings: return .gray
             }
         }
     }
@@ -157,18 +176,42 @@ struct MainTabView: View {
 struct FloatingActionButton: View {
     let selectedTab: MainTabView.Tab
     let action: () -> Void
+    @State private var isPressed = false
     
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus")
+        Button(action: {
+            HapticManager.shared.light()
+            withAnimation(.springBounce) {
+                action()
+            }
+        }) {
+            Image(systemName: selectedTab.createIcon)
                 .font(.title2)
                 .fontWeight(.semibold)
                 .foregroundColor(.white)
                 .frame(width: 56, height: 56)
-                .background(Color.blue)
+                .background(
+                    LinearGradient(
+                        colors: [selectedTab.accentColor, selectedTab.accentColor.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .clipShape(Circle())
-                .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 2)
+                .shadow(
+                    color: selectedTab.accentColor.opacity(0.3),
+                    radius: isPressed ? 4 : 8,
+                    x: 0,
+                    y: isPressed ? 2 :4
+                )
+                .scaleEffect(isPressed ? 0.95 : 1.0)
         }
+        .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = pressing
+            }
+        }, perform: {})
     }
 }
 
@@ -176,6 +219,7 @@ struct CreateItemSheet: View {
     let selectedTab: MainTabView.Tab
     @Environment(\.dismiss) private var dismiss
     @State private var selectedCreateOption: CreateOption = .task
+    @State private var showingCreateView = false
     
     enum CreateOption: String, CaseIterable {
         case task = "Task"
@@ -193,6 +237,16 @@ struct CreateItemSheet: View {
             case .keyIndicator: return "chart.bar"
             }
         }
+        
+        var color: Color {
+            switch self {
+            case .task: return .green
+            case .event: return .purple
+            case .goal: return .orange
+            case .note: return .indigo
+            case .keyIndicator: return .blue
+            }
+        }
     }
     
     var body: some View {
@@ -206,9 +260,9 @@ struct CreateItemSheet: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 20) {
                     ForEach(CreateOption.allCases, id: \.self) { option in
                         CreateOptionCard(option: option) {
+                            HapticManager.shared.medium()
                             selectedCreateOption = option
-                            // Navigate to appropriate creation view
-                            dismiss()
+                            showingCreateView = true
                         }
                     }
                 }
@@ -220,10 +274,30 @@ struct CreateItemSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Cancel") {
+                        HapticManager.shared.light()
                         dismiss()
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showingCreateView) {
+            createViewForOption(selectedCreateOption)
+        }
+    }
+    
+    @ViewBuilder
+    private func createViewForOption(_ option: CreateOption) -> some View {
+        switch option {
+        case .task:
+            CreateTaskView()
+        case .event:
+            CreateEventView()
+        case .goal:
+            CreateGoalView()
+        case .note:
+            CreateNoteView()
+        case .keyIndicator:
+            CreateKeyIndicatorView()
         }
     }
 }
@@ -231,13 +305,15 @@ struct CreateItemSheet: View {
 struct CreateOptionCard: View {
     let option: CreateItemSheet.CreateOption
     let action: () -> Void
+    @State private var isPressed = false
     
     var body: some View {
         Button(action: action) {
             VStack(spacing: 12) {
                 Image(systemName: option.icon)
                     .font(.system(size: 30))
-                    .foregroundColor(.blue)
+                    .foregroundColor(option.color)
+                    .scaleEffect(isPressed ? 0.9 : 1.0)
                 
                 Text(option.rawValue)
                     .font(.headline)
@@ -245,15 +321,33 @@ struct CreateOptionCard: View {
             }
             .frame(height: 100)
             .frame(maxWidth: .infinity)
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(option.color.opacity(0.3), lineWidth: 2)
+                    )
+            )
+            .shadow(
+                color: option.color.opacity(0.1),
+                radius: isPressed ? 2 : 4,
+                x: 0,
+                y: isPressed ? 1 : 2
+            )
+            .scaleEffect(isPressed ? 0.95 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = pressing
+            }
+        }, perform: {})
     }
 }
 
 #Preview {
     ContentView()
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
         .environmentObject(DataManager.shared)
 }

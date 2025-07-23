@@ -157,5 +157,5 @@ struct NoteCard: View {
 #Preview {
     NotesView()
         .environmentObject(DataManager.shared)
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
 }

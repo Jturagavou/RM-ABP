@@ -16,11 +16,13 @@ struct CreateNoteView: View {
     @State private var linkedEventIds: Set<String> = []
     
     let noteToEdit: Note?
+    let defaultGoalId: String?
     
     private let folders = ["Personal", "Work", "Church", "School", "Ideas", "Journal"]
     
-    init(noteToEdit: Note? = nil) {
+    init(noteToEdit: Note? = nil, defaultGoalId: String? = nil) {
         self.noteToEdit = noteToEdit
+        self.defaultGoalId = defaultGoalId
     }
     
     var body: some View {
@@ -177,6 +179,9 @@ struct CreateNoteView: View {
             }
             .onAppear {
                 loadNoteData()
+                if let defaultGoalId = defaultGoalId {
+                    linkedGoalIds.insert(defaultGoalId)
+                }
             }
             .sheet(isPresented: $showingFolderPicker) {
                 FolderPickerView(selectedFolder: $selectedFolder, folders: folders)
@@ -199,7 +204,7 @@ struct CreateNoteView: View {
         guard let userId = authViewModel.currentUser?.id else { return }
         
         let note: Note
-        if let existingNote = noteToEdit {
+        if let _ = noteToEdit {
             // Create a new note with the existing ID for updates
             note = Note(
                 title: title,
@@ -312,5 +317,5 @@ struct FolderPickerView: View {
 #Preview {
     CreateNoteView()
         .environmentObject(DataManager.shared)
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
 } 

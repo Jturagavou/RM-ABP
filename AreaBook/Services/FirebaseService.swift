@@ -21,8 +21,8 @@ class FirebaseService: NSObject {
     private func setupFirestore() {
         // Configure Firestore settings
         let settings = FirestoreSettings()
-        settings.isPersistenceEnabled = true
-        settings.cacheSizeBytes = FirestoreCacheSizeUnlimited
+        // Use the new cacheSettings API instead of deprecated properties
+        settings.cacheSettings = PersistentCacheSettings(sizeBytes: NSNumber(value: 100 * 1024 * 1024)) // 100 MB cache
         db.settings = settings
     }
     
@@ -51,26 +51,36 @@ class FirebaseService: NSObject {
             return
         }
         
-        do {
-            // Configure Firebase
-            FirebaseApp.configure()
-            os_log("✅ FirebaseService: FirebaseApp.configure() completed", log: .default, type: .info)
-            
-            // Initialize Firebase services after configuration
-            self.auth = Auth.auth()
-            self.db = Firestore.firestore()
-            self.storage = Storage.storage()
-            self.messaging = Messaging.messaging()
-            
-            os_log("✅ FirebaseService: All Firebase services initialized", log: .default, type: .info)
-            
-            setupFirestore()
-            setupMessaging()
-            
-            os_log("✅ FirebaseService: Firebase configured successfully", log: .default, type: .info)
-        } catch {
-            os_log("❌ FirebaseService: Error configuring Firebase: %{public}@", log: .default, type: .error, error.localizedDescription)
+        // Validate Firebase configuration file exists and is valid
+        guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+              let plist = NSDictionary(contentsOfFile: path),
+              let projectId = plist["PROJECT_ID"] as? String,
+              !projectId.isEmpty,
+              let bundleId = plist["BUNDLE_ID"] as? String,
+              !bundleId.isEmpty else {
+            os_log("❌ FirebaseService: CRITICAL - GoogleService-Info.plist missing or invalid!", log: .default, type: .error)
+            os_log("❌ FirebaseService: Please ensure you have downloaded the correct GoogleService-Info.plist from Firebase Console", log: .default, type: .error)
+            fatalError("Firebase configuration missing or invalid. Please check GoogleService-Info.plist file.")
         }
+        
+        os_log("✅ FirebaseService: Configuration file validated - Project: %{public}@", log: .default, type: .info, projectId)
+        
+        // Configure Firebase
+        FirebaseApp.configure()
+        os_log("✅ FirebaseService: FirebaseApp.configure() completed", log: .default, type: .info)
+        
+        // Initialize Firebase services after configuration
+        self.auth = Auth.auth()
+        self.db = Firestore.firestore()
+        self.storage = Storage.storage()
+        self.messaging = Messaging.messaging()
+        
+        os_log("✅ FirebaseService: All Firebase services initialized", log: .default, type: .info)
+        
+        setupFirestore()
+        setupMessaging()
+        
+        os_log("✅ FirebaseService: Firebase configured successfully", log: .default, type: .info)
     }
 }
 
@@ -104,7 +114,7 @@ extension FirebaseService: UNUserNotificationCenterDelegate {
         os_log("Full message: %{public}@", log: .default, type: .info, String(describing: userInfo))
         
         // Show notification even when app is in foreground
-        completionHandler([[.alert, .sound]])
+        completionHandler([.banner, .sound])
     }
     
     func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -127,22 +137,14 @@ extension FirebaseService: UNUserNotificationCenterDelegate {
 // MARK: - Firestore Extensions
 extension FirebaseService {
     func enableNetwork() {
-        db.enableNetwork { error in
-            if let error = error {
-                os_log("Error enabling network: %{public}@", log: .default, type: .error, error.localizedDescription)
-            } else {
-                os_log("Network enabled", log: .default, type: .info)
-            }
+        db.enableNetwork { _ in
+            os_log("Network enabled", log: .default, type: .info)
         }
     }
     
     func disableNetwork() {
-        db.disableNetwork { error in
-            if let error = error {
-                os_log("Error disabling network: %{public}@", log: .default, type: .error, error.localizedDescription)
-            } else {
-                os_log("Network disabled", log: .default, type: .info)
-            }
+        db.disableNetwork { _ in
+            os_log("Network disabled", log: .default, type: .info)
         }
     }
 }
@@ -173,5 +175,7 @@ extension FirebaseService {
     }
 }
 
+import UserNotifications
+import UIKit
 import UserNotifications
 import UIKit

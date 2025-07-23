@@ -143,5 +143,5 @@ struct TaskCard: View {
 #Preview {
     TasksView()
         .environmentObject(DataManager.shared)
-        .environmentObject(AuthViewModel())
+        .environmentObject(AuthViewModel.shared)
 }

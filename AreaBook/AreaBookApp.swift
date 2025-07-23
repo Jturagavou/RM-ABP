@@ -11,8 +11,10 @@ struct AreaBookApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(AuthViewModel())
+                .environmentObject(AuthViewModel.shared)
                 .environmentObject(DataManager.shared)
         }
+        .windowResizability(.contentSize)
+        .windowToolbarStyle(.unified)
     }
 }

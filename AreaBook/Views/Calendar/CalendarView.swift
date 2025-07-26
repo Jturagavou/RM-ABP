@@ -43,6 +43,8 @@ struct CalendarView: View {
     @State private var newEventEnd = Date().addingTimeInterval(3600)
     @State private var calendarViewMode: CalendarViewMode = .month
     @State private var editingEvent: CalendarEvent?
+    @State private var lastScaleValue: CGFloat = 1.0
+    @State private var currentScale: CGFloat = 1.0
     
     enum CalendarViewMode: String, CaseIterable {
         case day = "Day"
@@ -62,15 +64,30 @@ struct CalendarView: View {
                 .pickerStyle(SegmentedPickerStyle())
                 .padding()
                 
-                // Calendar Content
-                switch calendarViewMode {
-                case .day:
-                    DayView(selectedDate: $selectedDate, events: eventsForSelectedDate, gestureCoordinator: gestureCoordinator)
-                case .week:
-                    WeekView(selectedDate: $selectedDate, events: eventsForWeek)
-                case .month:
-                    MonthView(selectedDate: $selectedDate, events: eventsForSelectedDate, gestureCoordinator: gestureCoordinator)
+                // Calendar Content with Pinch Zoom
+                Group {
+                    switch calendarViewMode {
+                    case .day:
+                        DayView(selectedDate: $selectedDate, events: eventsForSelectedDate, gestureCoordinator: gestureCoordinator)
+                    case .week:
+                        WeekView(selectedDate: $selectedDate, events: eventsForWeek, gestureCoordinator: gestureCoordinator)
+                    case .month:
+                        MonthView(selectedDate: $selectedDate, events: eventsForSelectedDate, gestureCoordinator: gestureCoordinator)
+                    }
                 }
+                .gesture(
+                    MagnificationGesture()
+                        .onChanged { value in
+                            currentScale = value
+                        }
+                        .onEnded { value in
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                handlePinchZoom(scale: value)
+                            }
+                            currentScale = 1.0
+                            lastScaleValue = 1.0
+                        }
+                )
             }
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
@@ -84,6 +101,35 @@ struct CalendarView: View {
                 .environmentObject(authViewModel)
             }
         }
+    }
+    
+    private func handlePinchZoom(scale: CGFloat) {
+        // Pinch out (zoom in) - go to more detailed view
+        if scale > 1.5 {
+            switch calendarViewMode {
+            case .month:
+                calendarViewMode = .week
+            case .week:
+                calendarViewMode = .day
+            case .day:
+                break // Already at most detailed view
+            }
+        }
+        // Pinch in (zoom out) - go to less detailed view
+        else if scale < 0.75 {
+            switch calendarViewMode {
+            case .day:
+                calendarViewMode = .week
+            case .week:
+                calendarViewMode = .month
+            case .month:
+                break // Already at least detailed view
+            }
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
     }
     
     private var eventsForSelectedDate: [CalendarEvent] {
@@ -468,6 +514,10 @@ struct DayTimeSlot: View {
 struct WeekView: View {
     @Binding var selectedDate: Date
     let events: [CalendarEvent]
+    @ObservedObject var gestureCoordinator: CalendarGestureCoordinator
+    @State private var showingCreateEvent = false
+    @State private var newEventStart = Date()
+    @State private var newEventEnd = Date().addingTimeInterval(3600)
     
     var body: some View {
         ScrollView {
@@ -488,12 +538,29 @@ struct WeekView: View {
                 // Week Grid
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
                     ForEach(weekDays, id: \.self) { date in
-                        WeekDayCell(date: date, events: eventsForDate(date))
+                        WeekDayCell(
+                            date: date,
+                            events: eventsForDate(date),
+                            onLongPress: {
+                                let calendar = Calendar.current
+                                let baseDate = calendar.startOfDay(for: date)
+                                newEventStart = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: baseDate) ?? date
+                                newEventEnd = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: baseDate) ?? date.addingTimeInterval(3600)
+                                showingCreateEvent = true
+                            }
+                        )
                     }
                 }
                 .padding(.horizontal)
             }
             .padding(.vertical)
+        }
+        .sheet(isPresented: $showingCreateEvent) {
+            CreateEventView(
+                eventToEdit: nil,
+                defaultStart: newEventStart,
+                defaultEnd: newEventEnd
+            )
         }
     }
     
@@ -522,6 +589,8 @@ struct WeekView: View {
 struct WeekDayCell: View {
     let date: Date
     let events: [CalendarEvent]
+    let onLongPress: () -> Void
+    @State private var isLongPressing = false
     
     var body: some View {
         VStack(spacing: 4) {
@@ -543,6 +612,46 @@ struct WeekDayCell: View {
         .frame(maxWidth: .infinity)
         .background(Calendar.current.isDateInToday(date) ? Color.blue.opacity(0.1) : Color(.systemGray6))
         .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isLongPressing ? Color.blue.opacity(0.3) : Color.clear)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(
+                            isLongPressing ? Color.blue : Color.clear,
+                            lineWidth: isLongPressing ? 2 : 0
+                        )
+                        .scaleEffect(isLongPressing ? 1.05 : 1.0)
+                )
+                .animation(.easeInOut(duration: 0.2), value: isLongPressing)
+        )
+        .scaleEffect(isLongPressing ? 0.95 : 1.0)
+        .onLongPressGesture(minimumDuration: 0.6, maximumDistance: 40) {
+            print("🎯 Long press SUCCESS at \(Calendar.current.component(.day, from: date))")
+            
+            // Enhanced haptic feedback
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.impactOccurred()
+            
+            onLongPress()
+        } onPressingChanged: { pressing in
+            if pressing {
+                // Start visual feedback immediately
+                withAnimation(.easeIn(duration: 0.2)) {
+                    isLongPressing = true
+                }
+                
+                // Gentle vibration on press start
+                let selectionFeedback = UISelectionFeedbackGenerator()
+                selectionFeedback.selectionChanged()
+                
+            } else {
+                // End visual feedback immediately
+                withAnimation(.easeOut(duration: 0.2)) {
+                    isLongPressing = false
+                }
+            }
+        }
     }
 }
 

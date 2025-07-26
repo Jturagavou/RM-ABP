@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Gesture State Management
 enum CalendarGestureState {
@@ -75,7 +76,8 @@ struct CalendarView: View {
                         MonthView(selectedDate: $selectedDate, events: eventsForSelectedDate, gestureCoordinator: gestureCoordinator)
                     }
                 }
-                .gesture(
+                .background(Color.clear) // Ensure gesture area is defined
+                .simultaneousGesture(
                     MagnificationGesture()
                         .onChanged { value in
                             currentScale = value
@@ -360,6 +362,15 @@ struct DayView: View {
     @State private var newEventStart = Date()
     @State private var newEventEnd = Date().addingTimeInterval(3600)
     
+    // Drag gesture states
+    @State private var isDragging = false
+    @State private var dragStartHour: Int?
+    @State private var dragEndHour: Int?
+    @State private var dragStartY: CGFloat = 0
+    @State private var currentDragY: CGFloat = 0
+    
+    private let hourHeight: CGFloat = 60
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -376,29 +387,63 @@ struct DayView: View {
                 }
                 .padding(.horizontal)
                 
-                // Time Slots
-                LazyVStack(spacing: 8) {
-                    ForEach(0..<24, id: \.self) { hour in
-                        DayTimeSlot(
-                            hour: hour,
-                            date: selectedDate,
-                            events: eventsForHour(hour),
-                            onLongPress: {
-                                let calendar = Calendar.current
-                                let baseDate = calendar.startOfDay(for: selectedDate)
-                                newEventStart = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: baseDate) ?? selectedDate
-                                newEventEnd = calendar.date(bySettingHour: hour + 1, minute: 0, second: 0, of: baseDate) ?? selectedDate.addingTimeInterval(3600)
-                                showingCreateEvent = true
-                            },
-                            onCreateEvent: { start, end in
-                                newEventStart = start
-                                newEventEnd = end
-                                showingCreateEvent = true
-                            }
-                        )
+                // Time Slots Container
+                ZStack(alignment: .topLeading) {
+                    // Time slots
+                    LazyVStack(spacing: 8) {
+                        ForEach(0..<24, id: \.self) { hour in
+                            DayTimeSlot(
+                                hour: hour,
+                                date: selectedDate,
+                                events: eventsForHour(hour),
+                                isHighlighted: isDragging && isHourInDragRange(hour)
+                            )
+                            .frame(height: hourHeight)
+                        }
+                    }
+                    .padding(.leading, 62) // Account for time label width
+                    
+                    // Temporary event block during drag
+                    if isDragging, let startHour = dragStartHour, let endHour = dragEndHour {
+                        let minHour = min(startHour, endHour)
+                        let maxHour = max(startHour, endHour)
+                        let yOffset = CGFloat(minHour) * (hourHeight + 8)
+                        let height = CGFloat(maxHour - minHour + 1) * (hourHeight + 8) - 8
+                        
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.blue.opacity(0.2))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.blue, lineWidth: 2)
+                                    .overlay(
+                                        VStack {
+                                            Text("New Event")
+                                                .font(.headline)
+                                                .fontWeight(.semibold)
+                                            Text("\(minHour):00 - \(maxHour + 1):00")
+                                                .font(.subheadline)
+                                        }
+                                        .foregroundColor(.blue)
+                                    )
+                            )
+                            .frame(height: height)
+                            .offset(x: 62, y: yOffset)
+                            .shadow(color: Color.blue.opacity(0.3), radius: 4, x: 0, y: 2)
+                            .allowsHitTesting(false)
+                            .animation(.easeInOut(duration: 0.2), value: height)
                     }
                 }
                 .padding(.horizontal)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 10)
+                        .onChanged { value in
+                            handleDragChanged(value)
+                        }
+                        .onEnded { value in
+                            handleDragEnded(value)
+                        }
+                )
             }
             .padding(.vertical)
         }
@@ -409,6 +454,75 @@ struct DayView: View {
                 defaultEnd: newEventEnd
             )
         }
+    }
+    
+    private func handleDragChanged(_ value: DragGesture.Value) {
+        let hour = Int(value.location.y / (hourHeight + 8))
+        let clampedHour = max(0, min(23, hour))
+        
+        if !isDragging {
+            // Check if drag is long enough to start
+            let dragDistance = abs(value.translation.height)
+            if dragDistance > 5 {
+                // Start drag
+                isDragging = true
+                dragStartHour = clampedHour
+                dragEndHour = clampedHour
+                dragStartY = value.startLocation.y
+                
+                // Haptic feedback
+                let selectionFeedback = UISelectionFeedbackGenerator()
+                selectionFeedback.selectionChanged()
+            }
+        } else {
+            // Update drag
+            let prevEndHour = dragEndHour
+            dragEndHour = clampedHour
+            currentDragY = value.location.y
+            
+            // Light haptic when crossing hour boundaries
+            if let prevEnd = prevEndHour, prevEnd != clampedHour {
+                let selectionFeedback = UISelectionFeedbackGenerator()
+                selectionFeedback.selectionChanged()
+            }
+        }
+    }
+    
+    private func handleDragEnded(_ value: DragGesture.Value) {
+        guard isDragging, let startHour = dragStartHour, let endHour = dragEndHour else {
+            isDragging = false
+            return
+        }
+        
+        let minHour = min(startHour, endHour)
+        let maxHour = max(startHour, endHour)
+        
+        // Create event
+        let calendar = Calendar.current
+        let baseDate = calendar.startOfDay(for: selectedDate)
+        newEventStart = calendar.date(bySettingHour: minHour, minute: 0, second: 0, of: baseDate) ?? selectedDate
+        newEventEnd = calendar.date(bySettingHour: maxHour + 1, minute: 0, second: 0, of: baseDate) ?? selectedDate
+        
+        // Strong haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Reset drag state
+        isDragging = false
+        dragStartHour = nil
+        dragEndHour = nil
+        
+        // Show create event sheet
+        showingCreateEvent = true
+    }
+    
+    private func isHourInDragRange(_ hour: Int) -> Bool {
+        guard let startHour = dragStartHour, let endHour = dragEndHour else {
+            return false
+        }
+        let minHour = min(startHour, endHour)
+        let maxHour = max(startHour, endHour)
+        return hour >= minHour && hour <= maxHour
     }
     
     private func eventsForHour(_ hour: Int) -> [CalendarEvent] {
@@ -423,16 +537,12 @@ struct DayView: View {
     }
 }
 
-// MARK: - Day Time Slot with Enhanced Long Press
+// MARK: - Day Time Slot (Simplified)
 struct DayTimeSlot: View {
     let hour: Int
     let date: Date
     let events: [CalendarEvent]
-    let onLongPress: () -> Void
-    let onCreateEvent: (Date, Date) -> Void
-    
-    @State private var isLongPressing = false
-    @State private var longPressGestureId = UUID()
+    let isHighlighted: Bool
     
     var body: some View {
         HStack(spacing: 12) {
@@ -445,59 +555,14 @@ struct DayTimeSlot: View {
             // Time Slot Content
             VStack(spacing: 4) {
                 if events.isEmpty {
-                    // Empty slot with long press capability
+                    // Empty slot
                     Rectangle()
                         .fill(Color.clear)
-                        .frame(height: 60)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(isLongPressing ? Color.blue.opacity(0.3) : Color.clear)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(
-                                            isLongPressing ? Color.blue : Color.clear,
-                                            lineWidth: isLongPressing ? 2 : 0
-                                        )
-                                        .scaleEffect(isLongPressing ? 1.02 : 1.0)
-                                        .opacity(isLongPressing ? 1.0 : 0.0)
-                                )
-                                .animation(.easeInOut(duration: 0.2), value: isLongPressing)
+                            Rectangle()
+                                .fill(isHighlighted ? Color.blue.opacity(0.1) : Color.clear)
                         )
-                        .contentShape(Rectangle())
-                        .onLongPressGesture(minimumDuration: 0.6, maximumDistance: 40) {
-                            print("🎯 Long press SUCCESS at \(hour):00")
-                            
-                            // Enhanced haptic feedback
-                            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                            impactFeedback.impactOccurred()
-                            
-                            // Create event with proper timing
-                            let calendar = Calendar.current
-                            let baseDate = calendar.startOfDay(for: date)
-                            let eventStart = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: baseDate) ?? date
-                            let eventEnd = calendar.date(byAdding: .hour, value: 1, to: eventStart) ?? eventStart.addingTimeInterval(3600)
-                            
-                            onCreateEvent(eventStart, eventEnd)
-                            onLongPress()
-                            
-                        } onPressingChanged: { pressing in
-                            if pressing {
-                                // Start visual feedback immediately
-                                withAnimation(.easeIn(duration: 0.2)) {
-                                    isLongPressing = true
-                                }
-                                
-                                // Gentle vibration on press start
-                                let selectionFeedback = UISelectionFeedbackGenerator()
-                                selectionFeedback.selectionChanged()
-                                
-                            } else {
-                                // End visual feedback immediately
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    isLongPressing = false
-                                }
-                            }
-                        }
                 } else {
                     // Events in this time slot
                     ForEach(events) { event in
@@ -505,8 +570,6 @@ struct DayTimeSlot: View {
                     }
                 }
             }
-            
-            Spacer()
         }
     }
 }

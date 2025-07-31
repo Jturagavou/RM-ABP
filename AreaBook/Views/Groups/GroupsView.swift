@@ -4,6 +4,7 @@ import Firebase
 struct GroupsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @StateObject private var collaborationManager = CollaborationManager.shared
+    @StateObject private var chatManager = GroupChatManager.shared
     @State private var showingCreateGroup = false
     @State private var showingJoinGroup = false
     @State private var showingJoinWithInviteCode = false
@@ -116,6 +117,10 @@ struct GroupsView: View {
             }
             .onAppear {
                 startListeners()
+                // Start chat conversations listener
+                if let userId = authViewModel.currentUser?.id {
+                    chatManager.startListeningToConversations(userId: userId)
+                }
             }
             .onDisappear {
                 collaborationManager.stopAllListeners()
@@ -163,6 +168,7 @@ struct GroupsView: View {
         
         print("🔍 GroupsView: Starting listeners for user: \(userId)")
         collaborationManager.startListeningToUserGroups(userId: userId)
+        chatManager.startListeningToConversations(userId: userId)
         
         // Start listening to progress for each group
         for group in collaborationManager.currentUserGroups {
@@ -474,22 +480,40 @@ struct EnhancedGroupCard: View {
                 .padding(.horizontal)
                 .padding(.bottom, 12)
             
-            // Activity Indicator
-            if hasRecentActivity {
-                HStack {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 6, height: 6)
-                    
-                    Text("Active now")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                    
-                    Spacer()
+            // Activity Indicator and Chat Button
+            HStack {
+                if hasRecentActivity {
+                    HStack {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 6, height: 6)
+                        
+                        Text("Active now")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 12)
+                
+                Spacer()
+                
+                // Chat Button
+                NavigationLink(destination: GroupChatView(group: group)) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "message")
+                        Text("Chat")
+                    }
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.1))
+                    .foregroundColor(.blue)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(PlainButtonStyle())
             }
+            .padding(.horizontal)
+            .padding(.bottom, 12)
         }
         .background(Color(.systemBackground))
         .cornerRadius(16)

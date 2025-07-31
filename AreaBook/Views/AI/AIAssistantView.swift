@@ -71,8 +71,18 @@ struct ConversationalChatView: View {
     let onDismiss: () -> Void
     
     @StateObject private var aiService = AIService.shared
+    @StateObject private var aiCalendarParser = AICalendarParser.shared
+    @StateObject private var ocrService = OCRService.shared
     @EnvironmentObject var dataManager: DataManager
     @FocusState private var isInputFocused: Bool
+    
+    // Image processing states
+    @State private var showingImagePicker = false
+    @State private var selectedImage: UIImage?
+    @State private var processingImage = false
+    @State private var showingEventConfirmation = false
+    @State private var extractedEvents: [CalendarEvent] = []
+    @State private var processingResult: CalendarProcessingResult?
     
     var body: some View {
         NavigationView {
@@ -106,6 +116,14 @@ struct ConversationalChatView: View {
                     Divider()
                     
                     HStack(spacing: 12) {
+                        // Camera/Image button
+                        Button(action: { showingImagePicker = true }) {
+                            Image(systemName: "camera.fill")
+                                .font(.title2)
+                                .foregroundColor(.blue)
+                        }
+                        .disabled(isTyping || processingImage)
+                        
                         TextField("Type your message...", text: $currentInput, axis: .vertical)
                             .textFieldStyle(.roundedBorder)
                             .focused($isInputFocused)
@@ -119,7 +137,7 @@ struct ConversationalChatView: View {
                                 .font(.title2)
                                 .foregroundColor(currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .accentColor)
                         }
-                        .disabled(currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTyping)
+                        .disabled(currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTyping || processingImage)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -144,6 +162,22 @@ struct ConversationalChatView: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .sheet(isPresented: $showingImagePicker) {
+            ImageSelectionSheet(
+                isPresented: $showingImagePicker,
+                selectedImage: $selectedImage,
+                onImageSelected: processCalendarImage
+            )
+        }
+        .sheet(isPresented: $showingEventConfirmation) {
+            if let result = processingResult {
+                CalendarEventConfirmationView(
+                    result: result,
+                    onConfirm: confirmEvents,
+                    onCancel: { showingEventConfirmation = false }
+                )
+            }
+        }
         .onAppear {
             isInputFocused = true
         }
@@ -292,10 +326,121 @@ struct ConversationalChatView: View {
     private func initializeChat() {
         messages.append(ChatMessage(
             id: UUID().uuidString,
-            content: "Hi! I'm your AI assistant. I can help you with goals, tasks, events, and even understand your relationships with people in your accountability groups. What would you like to work on today?",
+            content: "Hi! I'm your AI assistant. I can help you with goals, tasks, events, and even understand your relationships with people in your accountability groups. You can also share calendar images with me and I'll extract events for you! What would you like to work on today?",
             isUser: false,
             timestamp: Date()
         ))
+    }
+    
+    // MARK: - Image Processing Functions
+    
+    private func processCalendarImage(_ image: UIImage) {
+        processingImage = true
+        
+        // Add processing message
+        messages.append(ChatMessage(
+            id: UUID().uuidString,
+            content: "📸 Processing your calendar image... I'm extracting text and identifying events.",
+            isUser: false,
+            timestamp: Date()
+        ))
+        
+        Task {
+            do {
+                let result = try await aiCalendarParser.processCalendarImage(image)
+                
+                await MainActor.run {
+                    processingImage = false
+                    processingResult = result
+                    
+                    if result.hasEvents {
+                        extractedEvents = result.calendarEvents
+                        
+                        // Add success message
+                        messages.append(ChatMessage(
+                            id: UUID().uuidString,
+                            content: "✅ Great! I found \(result.calendarEvents.count) event\(result.calendarEvents.count == 1 ? "" : "s") in your image:\n\n\(formatEventsForMessage(result.calendarEvents))\n\nWould you like me to add these to your calendar?",
+                            isUser: false,
+                            timestamp: Date()
+                        ))
+                        
+                        showingEventConfirmation = true
+                    } else {
+                        // Add no events found message
+                        messages.append(ChatMessage(
+                            id: UUID().uuidString,
+                            content: "I processed your image but couldn't identify any clear calendar events. The extracted text was:\n\n\(result.extractedText.isEmpty ? "No text found" : result.extractedText)\n\nCould you try a clearer image or tell me manually about the events you'd like to add?",
+                            isUser: false,
+                            timestamp: Date()
+                        ))
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    processingImage = false
+                    
+                    // Add error message
+                    messages.append(ChatMessage(
+                        id: UUID().uuidString,
+                        content: "❌ Sorry, I had trouble processing your image: \(error.localizedDescription). Please try again with a clearer image or tell me about the events manually.",
+                        isUser: false,
+                        timestamp: Date()
+                    ))
+                }
+            }
+        }
+    }
+    
+    private func formatEventsForMessage(_ events: [CalendarEvent]) -> String {
+        return events.enumerated().map { index, event in
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .medium
+            dateFormatter.timeStyle = event.isAllDay ? .none : .short
+            
+            let dateString = dateFormatter.string(from: event.startTime)
+            let endString = event.isAllDay ? "" : " - \(DateFormatter().string(from: event.endTime))"
+            
+            return "\(index + 1). **\(event.title)**\n   📅 \(dateString)\(endString)\n   📍 \(event.location ?? "No location")"
+        }.joined(separator: "\n\n")
+    }
+    
+    private func confirmEvents() {
+        showingEventConfirmation = false
+        
+        Task {
+            var successCount = 0
+            
+            for event in extractedEvents {
+                do {
+                    try await dataManager.createEvent(event)
+                    successCount += 1
+                } catch {
+                    print("Failed to create event: \(error)")
+                }
+            }
+            
+            await MainActor.run {
+                if successCount > 0 {
+                    messages.append(ChatMessage(
+                        id: UUID().uuidString,
+                        content: "🎉 Perfect! I've added \(successCount) event\(successCount == 1 ? "" : "s") to your calendar. You can view and edit them in the Calendar tab.",
+                        isUser: false,
+                        timestamp: Date()
+                    ))
+                } else {
+                    messages.append(ChatMessage(
+                        id: UUID().uuidString,
+                        content: "❌ Sorry, I couldn't add the events to your calendar. Please try creating them manually or contact support if the issue persists.",
+                        isUser: false,
+                        timestamp: Date()
+                    ))
+                }
+                
+                // Clear processed events
+                extractedEvents = []
+                processingResult = nil
+            }
+        }
     }
 }
 

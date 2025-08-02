@@ -262,7 +262,7 @@ public enum WidgetMood: String, Codable, CaseIterable {
 class WidgetDataService: ObservableObject {
     static let shared = WidgetDataService()
     
-    private let db = Firestore.firestore()
+    private var db: Firestore?
     
     // MARK: - Sync Coordination and Performance
     private let syncQueue = DispatchQueue(label: "widget.sync", qos: .utility)
@@ -275,6 +275,11 @@ class WidgetDataService: ObservableObject {
     }
     
     private init() {}
+    
+    func configure() {
+        // Initialize Firestore after Firebase is configured
+        self.db = Firestore.firestore()
+    }
     
     // MARK: - App Group Validation
     private func validateAppGroupSetup() -> Bool {

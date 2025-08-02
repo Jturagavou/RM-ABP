@@ -27,9 +27,13 @@ struct AreaBookApp: App {
         AIService.shared.configure()
         os_log("🚀 AreaBookApp: AIService configured", log: .default, type: .info)
         
-        // Initialize widget data service
-        let _ = WidgetDataService.shared
-        os_log("🚀 AreaBookApp: WidgetDataService initialized", log: .default, type: .info)
+        // Configure WidgetDataService
+        WidgetDataService.shared.configure()
+        os_log("🚀 AreaBookApp: WidgetDataService configured", log: .default, type: .info)
+        
+        // Configure CollaborationManager
+        CollaborationManager.shared.configure()
+        os_log("🚀 AreaBookApp: CollaborationManager configured", log: .default, type: .info)
         
         // Initialize Siri AI agent
         let _ = SiriAIAgent.shared

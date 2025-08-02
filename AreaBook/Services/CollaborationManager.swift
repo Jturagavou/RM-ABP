@@ -12,10 +12,15 @@ class CollaborationManager: ObservableObject {
     @Published var sharedProgress: [String: [ProgressShare]] = [:] // groupId: [progress]
     @Published var groupChallenges: [GroupChallenge] = []
     
-    private var db = Firestore.firestore()
+    private var db: Firestore?
     private var listeners: [ListenerRegistration] = []
     
     private init() {}
+    
+    func configure() {
+        // Initialize Firestore after Firebase is configured
+        self.db = Firestore.firestore()
+    }
     
     // MARK: - Group Management
     

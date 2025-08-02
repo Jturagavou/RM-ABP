@@ -101,7 +101,11 @@ class AuthViewModel: ObservableObject {
     }
     
     private func loadUserData(userId: String) {
-        let db = FirebaseService.shared.db!
+        guard let db = FirebaseService.shared.db else {
+            os_log("❌ AuthViewModel: Firestore database not initialized", log: .default, type: .error)
+            self.isLoading = false
+            return
+        }
         os_log("🔐 AuthViewModel: Accessing Firestore at path: users/%{public}@", log: .default, type: .info, userId)
         
         db.collection("users").document(userId).getDocument { [weak self] document, error in
@@ -121,8 +125,9 @@ class AuthViewModel: ObservableObject {
                         os_log("🔍 AuthViewModel: Raw Firestore data: %{public}@", log: .default, type: .info, String(describing: data))
                     }
                     
-                    do {
-                        let user = try document.data(as: User.self)
+                    // Use custom initializer instead of Codable to handle Firebase Timestamps
+                    if let userData = document.data(),
+                       let user = User(dictionary: userData) {
                         os_log("✅ AuthViewModel: Successfully decoded user data for: %{public}@", log: .default, type: .info, user.name)
                         self.currentUser = user
                         self.isAuthenticated = true
@@ -131,9 +136,8 @@ class AuthViewModel: ObservableObject {
                         
                         // FIXED: Sync authentication state to widgets with improved error handling
                         self.syncAuthenticationStateToWidgets()
-                    } catch {
-                        os_log("❌ AuthViewModel: Failed to decode user data: %{public}@", log: .default, type: .error, error.localizedDescription)
-                        os_log("❌ AuthViewModel: Decoding error: %{public}@", log: .default, type: .error, String(describing: error))
+                    } else {
+                        os_log("❌ AuthViewModel: Failed to decode user data from dictionary", log: .default, type: .error)
                         
                         // Try to create a user document with current Firebase Auth user data
                         guard let firebaseUser = Auth.auth().currentUser else {
@@ -174,7 +178,11 @@ class AuthViewModel: ObservableObject {
     }
 
     private func createUserDocument(userId: String, email: String, name: String, avatar: String? = nil) {
-        let db = FirebaseService.shared.db!
+        guard let db = FirebaseService.shared.db else {
+            os_log("❌ AuthViewModel: Firestore database not initialized", log: .default, type: .error)
+            self.isLoading = false
+            return
+        }
         let userRef = db.collection("users").document(userId)
         
         let user = User(
@@ -336,7 +344,11 @@ class AuthViewModel: ObservableObject {
         os_log("🔐 AuthViewModel: Updating profile for user: %{public}@", log: .default, type: .info, currentUser.id)
         isLoading = true
         
-        let db = FirebaseService.shared.db!
+        guard let db = FirebaseService.shared.db else {
+            os_log("❌ AuthViewModel: Firestore database not initialized", log: .default, type: .error)
+            self.isLoading = false
+            return
+        }
         db.collection("users").document(currentUser.id).updateData([
             "name": name
         ]) { [weak self] error in
@@ -358,7 +370,10 @@ class AuthViewModel: ObservableObject {
         guard let currentUser = currentUser else { return }
         
         os_log("🔐 AuthViewModel: Updating last seen for user: %{public}@", log: .default, type: .info, currentUser.id)
-        let db = FirebaseService.shared.db!
+        guard let db = FirebaseService.shared.db else {
+            os_log("❌ AuthViewModel: Firestore database not initialized", log: .default, type: .error)
+            return
+        }
         db.collection("users").document(currentUser.id).updateData([
             "lastSeen": Date()
         ]) { error in
@@ -397,7 +412,12 @@ class AuthViewModel: ObservableObject {
         isLoading = true
         
         // First delete the user document from Firestore
-        let db = FirebaseService.shared.db!
+        guard let db = FirebaseService.shared.db else {
+            os_log("❌ AuthViewModel: Firestore database not initialized", log: .default, type: .error)
+            self.isLoading = false
+            completion(false)
+            return
+        }
         db.collection("users").document(currentUser.id).delete { [weak self] error in
             if let error = error {
                 os_log("❌ AuthViewModel: Failed to delete user document: %{public}@", log: .default, type: .error, error.localizedDescription)

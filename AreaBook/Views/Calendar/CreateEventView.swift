@@ -563,11 +563,14 @@ class RecurringEventsGenerator {
                 if let nextDay = sortedDays.first(where: { $0 > currentWeekday }) {
                     let daysToAdd = nextDay - currentWeekday
                     return calendar.date(byAdding: .day, value: daysToAdd, to: date) ?? date
-                } else {
+                } else if let firstDay = sortedDays.first {
                     // Go to first day of next interval week
-                    let daysToNextWeek = 7 - currentWeekday + sortedDays[0]
+                    let daysToNextWeek = 7 - currentWeekday + firstDay
                     let weeksToAdd = (pattern.interval - 1) * 7
                     return calendar.date(byAdding: .day, value: daysToNextWeek + weeksToAdd, to: date) ?? date
+                } else {
+                    // Fallback if no days are specified
+                    return calendar.date(byAdding: .weekOfYear, value: pattern.interval, to: date) ?? date
                 }
             } else {
                 return calendar.date(byAdding: .weekOfYear, value: pattern.interval, to: date) ?? date

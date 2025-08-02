@@ -120,9 +120,10 @@ class AuthViewModel: ObservableObject {
                 if let document = document, document.exists {
                     os_log("✅ AuthViewModel: User document exists for user: %{public}@", log: .default, type: .info, userId)
                     
-                    // Log raw data for debugging
+                    // Log raw data for debugging (safely without FIRTimestamp)
                     if let data = document.data() {
-                        os_log("🔍 AuthViewModel: Raw Firestore data: %{public}@", log: .default, type: .info, String(describing: data))
+                        let dataKeys = data.keys.sorted().joined(separator: ", ")
+                        os_log("🔍 AuthViewModel: Raw Firestore data keys: %{public}@", log: .default, type: .info, dataKeys)
                     }
                     
                     // Use custom initializer instead of Codable to handle Firebase Timestamps

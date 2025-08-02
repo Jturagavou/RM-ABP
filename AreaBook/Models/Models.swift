@@ -54,18 +54,10 @@ struct User: Identifiable, Codable {
             self.lastSeen = Date() // Fallback
         }
         
-        // Safely handle settings - try different approaches
+        // Safely handle settings using custom dictionary initializer
         if let settingsDict = dictionary["settings"] as? [String: Any] {
-            // Try to create UserSettings from dictionary
-            do {
-                let settingsData = try JSONSerialization.data(withJSONObject: settingsDict)
-                self.settings = try JSONDecoder().decode(UserSettings.self, from: settingsData)
-            } catch {
-                print("⚠️ Failed to decode UserSettings, using defaults: \(error)")
-                self.settings = UserSettings() // Use default settings
-            }
+            self.settings = UserSettings(from: settingsDict)
         } else {
-            print("⚠️ No settings found in user data, using defaults")
             self.settings = UserSettings() // Use default settings
         }
     }
@@ -134,6 +126,65 @@ struct UserSettings: Codable {
         self.widgetShowEvents = true
         self.siriEnabled = false
         self.siriShortcuts = []
+    }
+    
+    // Initialize from dictionary (handles Firebase data)
+    init(from dictionary: [String: Any]) {
+        // Initialize with defaults first
+        self.init()
+        
+        // Safely extract values from dictionary
+        if let calendarView = dictionary["defaultCalendarView"] as? String,
+           let viewType = CalendarViewType(rawValue: calendarView) {
+            self.defaultCalendarView = viewType
+        }
+        
+        if let taskView = dictionary["defaultTaskView"] as? String,
+           let viewType = TaskViewType(rawValue: taskView) {
+            self.defaultTaskView = viewType
+        }
+        
+        if let colorScheme = dictionary["eventColorScheme"] as? [String: String] {
+            self.eventColorScheme = colorScheme
+        }
+        
+        self.notificationsEnabled = dictionary["notificationsEnabled"] as? Bool ?? true
+        self.pushNotifications = dictionary["pushNotifications"] as? Bool ?? true
+        self.dailyKIReviewTime = dictionary["dailyKIReviewTime"] as? String
+        
+        if let profileString = dictionary["userProfile"] as? String,
+           let profile = UserProfile(rawValue: profileString) {
+            self.userProfile = profile
+        }
+        
+        // Handle enabledFeatures array
+        if let featuresArray = dictionary["enabledFeatures"] as? [String] {
+            self.enabledFeatures = Set(featuresArray.compactMap { AppFeature(rawValue: $0) })
+        }
+        
+        // Skip complex nested objects for now to avoid Timestamp issues
+        // dashboardLayout, customWidgets, and aiPreferences will use defaults
+        
+        // Widget settings
+        if let widgetSizeString = dictionary["widgetSize"] as? String {
+            self.widgetSize = WidgetSize(rawValue: widgetSizeString)
+        }
+        
+        if let widgetThemeString = dictionary["widgetTheme"] as? String {
+            self.widgetTheme = WidgetTheme(rawValue: widgetThemeString)
+        }
+        
+        if let refreshIntervalString = dictionary["widgetRefreshInterval"] as? String {
+            self.widgetRefreshInterval = RefreshInterval(rawValue: refreshIntervalString)
+        }
+        
+        self.widgetShowKeyIndicators = dictionary["widgetShowKeyIndicators"] as? Bool
+        self.widgetShowTasks = dictionary["widgetShowTasks"] as? Bool
+        self.widgetShowEvents = dictionary["widgetShowEvents"] as? Bool
+        
+        // Siri settings
+        self.siriEnabled = dictionary["siriEnabled"] as? Bool ?? false
+        self.siriShortcuts = dictionary["siriShortcuts"] as? [String] ?? []
     }
     
     // MARK: - Codable Implementation

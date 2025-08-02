@@ -15,23 +15,27 @@ class AuthViewModel: ObservableObject {
     @Published var errorMessage = ""
     
     private var authStateListener: AuthStateDidChangeListenerHandle?
+    private var isInitialized = false
     
     private init() {
         os_log("🔐 AuthViewModel: Initializing...", log: .default, type: .info)
+        // Don't do any Firebase operations in init
+        os_log("🔐 AuthViewModel: Initialization complete", log: .default, type: .info)
+    }
+    
+    func configure() {
+        guard !isInitialized else { return }
+        isInitialized = true
+        
+        os_log("🔐 AuthViewModel: Configuring Firebase Auth...", log: .default, type: .info)
         
         // Ensure Firebase is configured before accessing Auth
         if FirebaseApp.app() == nil {
-            os_log("⚠️ AuthViewModel: Firebase not configured, configuring now...", log: .default, type: .info)
-            FirebaseService.shared.configure()
+            os_log("❌ AuthViewModel: Firebase not configured!", log: .default, type: .error)
+            return
         }
         
-        // Add a small delay to ensure Firebase is fully initialized
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            os_log("🔐 AuthViewModel: Setting up auth state listener...", log: .default, type: .info)
-            self?.setupAuthStateListener()
-        }
-        
-        os_log("🔐 AuthViewModel: Initialization complete", log: .default, type: .info)
+        setupAuthStateListener()
     }
     
     private func setupAuthStateListener() {

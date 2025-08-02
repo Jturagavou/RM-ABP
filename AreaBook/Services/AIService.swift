@@ -3,7 +3,7 @@ import FirebaseFirestore
 import FirebaseAuth
 
 class AIService: ObservableObject {
-    private let db = Firestore.firestore()
+    private var db: Firestore!
     
     // MARK: - Published Properties
     @Published var currentSuggestions: [AISuggestion] = []
@@ -14,8 +14,17 @@ class AIService: ObservableObject {
     
     // MARK: - Singleton
     static let shared = AIService()
+    private var isInitialized = false
     
     private init() {
+        // Don't access Firebase services in init
+    }
+    
+    func configure() {
+        guard !isInitialized else { return }
+        isInitialized = true
+        
+        self.db = Firestore.firestore()
         setupAuthListener()
     }
     

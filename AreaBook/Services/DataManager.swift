@@ -24,8 +24,7 @@ class DataManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
-        // Initialize AI service integration
-        setupAIIntegration()
+        // Don't access Firebase services in init
     }
     
     private func setupAIIntegration() {
@@ -58,6 +57,8 @@ class DataManager: ObservableObject {
     
     func configure() {
         self.db = Firestore.firestore()
+        // Initialize AI service integration after Firebase is ready
+        setupAIIntegration()
     }
     
     func setupListeners(for userId: String) {

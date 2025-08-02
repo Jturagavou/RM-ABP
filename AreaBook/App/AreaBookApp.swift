@@ -15,9 +15,17 @@ struct AreaBookApp: App {
         FirebaseService.shared.configure()
         os_log("🚀 AreaBookApp: Firebase configured", log: .default, type: .info)
         
+        // Configure AuthViewModel after Firebase
+        AuthViewModel.shared.configure()
+        os_log("🚀 AreaBookApp: AuthViewModel configured", log: .default, type: .info)
+        
         // Configure other services after Firebase
         DataManager.shared.configure()
         os_log("🚀 AreaBookApp: DataManager configured", log: .default, type: .info)
+        
+        // Configure AIService
+        AIService.shared.configure()
+        os_log("🚀 AreaBookApp: AIService configured", log: .default, type: .info)
         
         // Initialize widget data service
         let _ = WidgetDataService.shared

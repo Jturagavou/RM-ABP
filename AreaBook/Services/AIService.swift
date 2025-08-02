@@ -3,7 +3,7 @@ import FirebaseFirestore
 import FirebaseAuth
 
 class AIService: ObservableObject {
-    private var db: Firestore!
+    private var db: Firestore?
     
     // MARK: - Published Properties
     @Published var currentSuggestions: [AISuggestion] = []
@@ -56,7 +56,7 @@ class AIService: ObservableObject {
     
     // MARK: - User Profile Management
     func loadUserProfile(userId: String) {
-        db.collection("users").document(userId).getDocument { [weak self] document, error in
+        db?.collection("users").document(userId).getDocument { [weak self] document, error in
             DispatchQueue.main.async {
                 if let document = document, document.exists,
                    let userData = document.data(),

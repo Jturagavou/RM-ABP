@@ -342,7 +342,7 @@ public struct WidgetDataUtilities {
         let userId = sharedDefaults?.string(forKey: "currentUserId")
         let lastSync = sharedDefaults?.object(forKey: "lastSyncTime") as? Date
         
-        let isAuthenticated = userId != nil && !userId!.isEmpty
+        let isAuthenticated = !(userId ?? "").isEmpty
         return (userId, isAuthenticated, lastSync)
     }
     

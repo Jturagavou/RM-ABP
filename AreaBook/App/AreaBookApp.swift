@@ -58,7 +58,11 @@ struct AreaBookApp: App {
         // Register background app refresh task for widget updates
         BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.areabook.widget-refresh", using: nil) { task in
             os_log("🔄 AreaBookApp: Background widget refresh task started", log: .default, type: .info)
-            self.handleBackgroundWidgetRefresh(task: task as! BGAppRefreshTask)
+            guard let appRefreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self.handleBackgroundWidgetRefresh(task: appRefreshTask)
         }
     }
     

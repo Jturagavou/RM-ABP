@@ -371,16 +371,18 @@ class AuthViewModel: ObservableObject {
     }
     
     private func showError(_ message: String, suggestion: String? = nil) {
-        if let suggestion = suggestion {
-            errorMessage = "\(message)\nSuggestion: \(suggestion)"
-        } else {
-            errorMessage = message
-        }
-        showError = true
-        
-        // Auto-hide after 3 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            self.showError = false
+        DispatchQueue.main.async {
+            if let suggestion = suggestion {
+                self.errorMessage = "\(message)\nSuggestion: \(suggestion)"
+            } else {
+                self.errorMessage = message
+            }
+            self.showError = true
+            
+            // Auto-hide after 3 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                self.showError = false
+            }
         }
     }
     

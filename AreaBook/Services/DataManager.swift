@@ -115,8 +115,12 @@ class DataManager: ObservableObject {
                 }
                 
                 print("✅ DataManager: Key indicators listener success, found \(documents.count) documents")
-                self?.keyIndicators = documents.compactMap { doc -> KeyIndicator? in
+                let keyIndicators = documents.compactMap { doc -> KeyIndicator? in
                     try? doc.data(as: KeyIndicator.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.keyIndicators = keyIndicators
                 }
             }
         listeners.append(listener)
@@ -186,8 +190,12 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.goals = documents.compactMap { doc -> Goal? in
+                let goals = documents.compactMap { doc -> Goal? in
                     try? doc.data(as: Goal.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.goals = goals
                 }
             }
         listeners.append(listener)
@@ -241,8 +249,12 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.events = documents.compactMap { doc -> CalendarEvent? in
+                let events = documents.compactMap { doc -> CalendarEvent? in
                     try? doc.data(as: CalendarEvent.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.events = events
                 }
             }
         listeners.append(listener)
@@ -324,8 +336,12 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                        self?.tasks = documents.compactMap { doc -> AppTask? in
-            try? doc.data(as: AppTask.self)
+                let tasks = documents.compactMap { doc -> AppTask? in
+                    try? doc.data(as: AppTask.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.tasks = tasks
                 }
             }
         listeners.append(listener)
@@ -407,8 +423,12 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.notes = documents.compactMap { doc -> Note? in
+                let notes = documents.compactMap { doc -> Note? in
                     try? doc.data(as: Note.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.notes = notes
                 }
             }
         listeners.append(listener)
@@ -463,8 +483,12 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.accountabilityGroups = documents.compactMap { doc -> AccountabilityGroup? in
+                let accountabilityGroups = documents.compactMap { doc -> AccountabilityGroup? in
                     try? doc.data(as: AccountabilityGroup.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.accountabilityGroups = accountabilityGroups
                 }
             }
         listeners.append(listener)
@@ -503,8 +527,12 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.encouragements = documents.compactMap { doc -> Encouragement? in
+                let encouragements = documents.compactMap { doc -> Encouragement? in
                     try? doc.data(as: Encouragement.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.encouragements = encouragements
                 }
             }
         listeners.append(listener)
@@ -738,12 +766,14 @@ class DataManager: ObservableObject {
     }
     
     private func showError(_ message: String, suggestion: String? = nil) {
-        if let suggestion = suggestion {
-            self.errorMessage = "\(message)\nSuggestion: \(suggestion)"
-        } else {
-            self.errorMessage = message
+        DispatchQueue.main.async {
+            if let suggestion = suggestion {
+                self.errorMessage = "\(message)\nSuggestion: \(suggestion)"
+            } else {
+                self.errorMessage = message
+            }
+            self.showError = true
         }
-        self.showError = true
     }
     
     func updateUser(_ user: User, userId: String, completion: @escaping (Bool) -> Void) {

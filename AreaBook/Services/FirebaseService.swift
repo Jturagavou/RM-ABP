@@ -6,6 +6,10 @@ import FirebaseStorage
 import FirebaseMessaging
 import os.log
 
+extension Notification.Name {
+    static let firebaseConfigurationError = Notification.Name("firebaseConfigurationError")
+}
+
 class FirebaseService: NSObject {
     static let shared = FirebaseService()
     
@@ -60,7 +64,13 @@ class FirebaseService: NSObject {
               !bundleId.isEmpty else {
             os_log("❌ FirebaseService: CRITICAL - GoogleService-Info.plist missing or invalid!", log: .default, type: .error)
             os_log("❌ FirebaseService: Please ensure you have downloaded the correct GoogleService-Info.plist from Firebase Console", log: .default, type: .error)
-            fatalError("Firebase configuration missing or invalid. Please check GoogleService-Info.plist file.")
+            
+            // Set initialization to failed and return gracefully
+            isInitialized = false
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .firebaseConfigurationError, object: nil)
+            }
+            return
         }
         
         os_log("✅ FirebaseService: Configuration file validated - Project: %{public}@", log: .default, type: .info, projectId)

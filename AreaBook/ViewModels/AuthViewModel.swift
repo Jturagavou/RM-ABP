@@ -124,16 +124,21 @@ class AuthViewModel: ObservableObject {
                 if let document = document, document.exists {
                     os_log("✅ AuthViewModel: User document exists for user: %{public}@", log: .default, type: .info, userId)
                     
-                    // Log raw data for debugging (safely without FIRTimestamp)
-                    if let data = document.data() {
-                        let dataKeys = data.keys.sorted().joined(separator: ", ")
-                        os_log("🔍 AuthViewModel: Raw Firestore data keys: %{public}@", log: .default, type: .info, dataKeys)
+                    // Get data safely
+                    guard let userData = document.data() else {
+                        os_log("❌ AuthViewModel: No data in document", log: .default, type: .error)
+                        self.isLoading = false
+                        return
                     }
                     
+                    // Don't log the raw data as it might contain FIRTimestamp objects
+                    os_log("🔍 AuthViewModel: Processing user data...", log: .default, type: .info)
+                    
                     // Use custom initializer instead of Codable to handle Firebase Timestamps
-                    if let userData = document.data(),
-                       let user = User(dictionary: userData) {
-                        os_log("✅ AuthViewModel: Successfully decoded user data for: %{public}@", log: .default, type: .info, user.name)
+                    if let user = User(dictionary: userData) {
+                        // Don't use string interpolation with user object in logs
+                        let userEmail = user.email
+                        os_log("✅ AuthViewModel: Successfully decoded user data for user: %{public}@", log: .default, type: .info, userEmail)
                         self.currentUser = user
                         self.isAuthenticated = true
                         self.isLoading = false

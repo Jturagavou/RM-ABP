@@ -25,17 +25,23 @@ struct User: Identifiable, Codable {
     }
     // Add an initializer from [String: Any]
     init?(dictionary: [String: Any]) {
+        print("📊 User init: Starting initialization from dictionary")
+        
         guard let id = dictionary["id"] as? String,
               let email = dictionary["email"] as? String,
               let name = dictionary["name"] as? String else { 
+            print("❌ User init: Missing required fields")
             return nil 
         }
+        
+        print("📊 User init: Basic fields extracted - id: \(id), email: \(email)")
         
         self.id = id
         self.email = email
         self.name = name
         self.avatar = dictionary["avatar"] as? String
         
+        print("📊 User init: Handling createdAt...")
         // Safely handle createdAt - could be Timestamp or Date
         if let timestamp = dictionary["createdAt"] as? Timestamp {
             self.createdAt = timestamp.dateValue()
@@ -45,6 +51,7 @@ struct User: Identifiable, Codable {
             self.createdAt = Date() // Fallback
         }
         
+        print("📊 User init: Handling lastSeen...")
         // Safely handle lastSeen - could be Timestamp or Date
         if let timestamp = dictionary["lastSeen"] as? Timestamp {
             self.lastSeen = timestamp.dateValue()
@@ -54,12 +61,12 @@ struct User: Identifiable, Codable {
             self.lastSeen = Date() // Fallback
         }
         
-        // Safely handle settings using custom dictionary initializer
-        if let settingsDict = dictionary["settings"] as? [String: Any] {
-            self.settings = UserSettings(from: settingsDict)
-        } else {
-            self.settings = UserSettings() // Use default settings
-        }
+        print("📊 User init: Handling settings...")
+        // For now, always use default settings to avoid any potential Firebase Timestamp issues
+        // TODO: Implement proper settings parsing once we identify the timestamp issue
+        self.settings = UserSettings() // Use default settings for safety
+        
+        print("✅ User init: Initialization complete")
     }
     // Add an initializer from DocumentSnapshot
     init?(snapshot: DocumentSnapshot) {

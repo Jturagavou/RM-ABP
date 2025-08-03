@@ -38,6 +38,9 @@ class CollaborationManager: ObservableObject {
         // Add creator as admin member
         group.members.append(GroupMember(userId: creatorId, role: .admin))
         
+        guard let db = db else {
+            throw NSError(domain: "CollaborationManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Database not initialized"])
+        }
         try await db.collection("accountabilityGroups").document(group.id).setData(group.toFirestoreData())
         
         print("✅ CollaborationManager: Created group '\(group.name)' with ID: \(group.id)")

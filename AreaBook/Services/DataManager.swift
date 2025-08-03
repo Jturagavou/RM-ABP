@@ -34,8 +34,10 @@ class DataManager: ObservableObject {
             .debounce(for: .seconds(5), scheduler: DispatchQueue.main)
             .sink { [weak self] tasks, events, goals, notes in
                 self?.triggerAIAnalysis(tasks: tasks, events: events, goals: goals, notes: notes)
-                // Sync to widgets using existing service
-                WidgetDataService.shared.syncDataForWidgets()
+                // Only sync to widgets if WidgetDataService has been configured
+                if WidgetDataService.shared.db != nil {
+                    WidgetDataService.shared.syncDataForWidgets()
+                }
             }
             .store(in: &cancellables)
     }

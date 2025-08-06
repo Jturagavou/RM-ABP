@@ -174,8 +174,8 @@ struct CreateTaskView: View {
                                     let filtered = newValue.filter { "0123456789.".contains($0) }
                                     // Ensure only one decimal point
                                     let components = filtered.components(separatedBy: ".")
-                                    if components.count > 2 {
-                                        progressContributionString = components[0] + "." + components.dropFirst().joined()
+                                    if components.count > 2, let firstComponent = components.first {
+                                        progressContributionString = firstComponent + "." + components.dropFirst().joined()
                                     } else {
                                         progressContributionString = filtered
                                     }

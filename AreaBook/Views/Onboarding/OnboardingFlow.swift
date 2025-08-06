@@ -278,6 +278,11 @@ struct OnboardingAI {
             )
         }
         
+        guard answers.count >= 3 else {
+            print("❌ OnboardingFlow: Not enough answers provided: \(answers.count)")
+            return
+        }
+        
         let mainGoal = answers[0]
         let focusAreas = answers[1]
         let trackingPreference = answers[2]

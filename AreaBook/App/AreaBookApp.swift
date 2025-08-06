@@ -15,13 +15,25 @@ struct AreaBookApp: App {
         FirebaseService.shared.configure()
         os_log("🚀 AreaBookApp: Firebase configured", log: .default, type: .info)
         
+        // Configure AuthViewModel after Firebase
+        AuthViewModel.shared.configure()
+        os_log("🚀 AreaBookApp: AuthViewModel configured", log: .default, type: .info)
+        
         // Configure other services after Firebase
         DataManager.shared.configure()
         os_log("🚀 AreaBookApp: DataManager configured", log: .default, type: .info)
         
-        // Initialize widget data service
-        let _ = WidgetDataService.shared
-        os_log("🚀 AreaBookApp: WidgetDataService initialized", log: .default, type: .info)
+        // Configure AIService
+        AIService.shared.configure()
+        os_log("🚀 AreaBookApp: AIService configured", log: .default, type: .info)
+        
+        // Configure WidgetDataService
+        WidgetDataService.shared.configure()
+        os_log("🚀 AreaBookApp: WidgetDataService configured", log: .default, type: .info)
+        
+        // Configure CollaborationManager
+        CollaborationManager.shared.configure()
+        os_log("🚀 AreaBookApp: CollaborationManager configured", log: .default, type: .info)
         
         // Initialize Siri AI agent
         let _ = SiriAIAgent.shared
@@ -58,7 +70,11 @@ struct AreaBookApp: App {
         // Register background app refresh task for widget updates
         BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.areabook.widget-refresh", using: nil) { task in
             os_log("🔄 AreaBookApp: Background widget refresh task started", log: .default, type: .info)
-            self.handleBackgroundWidgetRefresh(task: task as! BGAppRefreshTask)
+            guard let appRefreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self.handleBackgroundWidgetRefresh(task: appRefreshTask)
         }
     }
     

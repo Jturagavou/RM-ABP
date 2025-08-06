@@ -12,10 +12,15 @@ class CollaborationManager: ObservableObject {
     @Published var sharedProgress: [String: [ProgressShare]] = [:] // groupId: [progress]
     @Published var groupChallenges: [GroupChallenge] = []
     
-    private var db = Firestore.firestore()
+    private var db: Firestore?
     private var listeners: [ListenerRegistration] = []
     
     private init() {}
+    
+    func configure() {
+        // Initialize Firestore after Firebase is configured
+        self.db = Firestore.firestore()
+    }
     
     // MARK: - Group Management
     
@@ -33,6 +38,9 @@ class CollaborationManager: ObservableObject {
         // Add creator as admin member
         group.members.append(GroupMember(userId: creatorId, role: .admin))
         
+        guard let db = db else {
+            throw NSError(domain: "CollaborationManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Database not initialized"])
+        }
         try await db.collection("accountabilityGroups").document(group.id).setData(group.toFirestoreData())
         
         print("✅ CollaborationManager: Created group '\(group.name)' with ID: \(group.id)")

@@ -19,13 +19,12 @@ class DataManager: ObservableObject {
     @Published var errorMessage = ""
     @Published var showError = false
     
-    private var db: Firestore!
+    private var db: Firestore?
     private var listeners: [ListenerRegistration] = []
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
-        // Initialize AI service integration
-        setupAIIntegration()
+        // Don't access Firebase services in init
     }
     
     private func setupAIIntegration() {
@@ -35,8 +34,10 @@ class DataManager: ObservableObject {
             .debounce(for: .seconds(5), scheduler: DispatchQueue.main)
             .sink { [weak self] tasks, events, goals, notes in
                 self?.triggerAIAnalysis(tasks: tasks, events: events, goals: goals, notes: notes)
-                // Sync to widgets using existing service
-                WidgetDataService.shared.syncDataForWidgets()
+                // Only sync to widgets if WidgetDataService has been configured
+                if WidgetDataService.shared.db != nil {
+                    WidgetDataService.shared.syncDataForWidgets()
+                }
             }
             .store(in: &cancellables)
     }
@@ -58,6 +59,8 @@ class DataManager: ObservableObject {
     
     func configure() {
         self.db = Firestore.firestore()
+        // Initialize AI service integration after Firebase is ready
+        setupAIIntegration()
     }
     
     func setupListeners(for userId: String) {
@@ -100,7 +103,7 @@ class DataManager: ObservableObject {
         let path = "users/\(userId)/keyIndicators"
         print("📊 DataManager: Firestore path: \(path)")
         
-        let listener = db.collection("users").document(userId).collection("keyIndicators")
+        let listener = db?.collection("users").document(userId).collection("keyIndicators")
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     print("❌ DataManager: Key indicators listener error: \(error.localizedDescription)")
@@ -115,11 +118,15 @@ class DataManager: ObservableObject {
                 }
                 
                 print("✅ DataManager: Key indicators listener success, found \(documents.count) documents")
-                self?.keyIndicators = documents.compactMap { doc -> KeyIndicator? in
+                let keyIndicators = documents.compactMap { doc -> KeyIndicator? in
                     try? doc.data(as: KeyIndicator.self)
                 }
+                
+                DispatchQueue.main.async {
+                    self?.keyIndicators = keyIndicators
+                }
             }
-        listeners.append(listener)
+        listeners.append(listener!)
     }
     
     func createKeyIndicator(_ keyIndicator: KeyIndicator, userId: String) {
@@ -129,7 +136,7 @@ class DataManager: ObservableObject {
         print("📊 DataManager: Firestore path: \(path)")
         
         do {
-            try db.collection("users").document(userId).collection("keyIndicators")
+            try db?.collection("users").document(userId).collection("keyIndicators")
                 .document(keyIndicator.id).setData(from: keyIndicator)
             print("✅ DataManager: Key indicator created successfully")
             
@@ -151,7 +158,7 @@ class DataManager: ObservableObject {
         updatedKI.updatedAt = Date()
         
         do {
-            try db.collection("users").document(userId).collection("keyIndicators")
+            try db?.collection("users").document(userId).collection("keyIndicators")
                 .document(keyIndicator.id).setData(from: updatedKI)
             
             // Immediately sync to widgets for real-time updates
@@ -163,7 +170,7 @@ class DataManager: ObservableObject {
     }
     
     func deleteKeyIndicator(_ keyIndicator: KeyIndicator, userId: String) {
-        db.collection("users").document(userId).collection("keyIndicators")
+        db?.collection("users").document(userId).collection("keyIndicators")
             .document(keyIndicator.id).delete { [weak self] error in
                 if let error = error {
                     self?.showError("Failed to delete key indicator: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -177,7 +184,7 @@ class DataManager: ObservableObject {
     
     // MARK: - Goals
     private func setupGoalsListener(userId: String) {
-        let listener = db.collection("users").document(userId).collection("goals")
+        let listener = db?.collection("users").document(userId).collection("goals")
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     self?.showError(error.localizedDescription)
@@ -186,16 +193,20 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.goals = documents.compactMap { doc -> Goal? in
+                let goals = documents.compactMap { doc -> Goal? in
                     try? doc.data(as: Goal.self)
                 }
+                
+                DispatchQueue.main.async {
+                    self?.goals = goals
+                }
             }
-        listeners.append(listener)
+        listeners.append(listener!)
     }
     
     func createGoal(_ goal: Goal, userId: String) {
         do {
-            try db.collection("users").document(userId).collection("goals")
+            try db?.collection("users").document(userId).collection("goals")
                 .document(goal.id).setData(from: goal)
             // Sync to widgets
             WidgetDataService.shared.syncDataForWidgets()
@@ -209,7 +220,7 @@ class DataManager: ObservableObject {
         updatedGoal.updatedAt = Date()
         
         do {
-            try db.collection("users").document(userId).collection("goals")
+            try db?.collection("users").document(userId).collection("goals")
                 .document(goal.id).setData(from: updatedGoal)
             // Sync to widgets
             WidgetDataService.shared.syncDataForWidgets()
@@ -219,7 +230,7 @@ class DataManager: ObservableObject {
     }
     
     func deleteGoal(_ goal: Goal, userId: String) {
-        db.collection("users").document(userId).collection("goals")
+        db?.collection("users").document(userId).collection("goals")
             .document(goal.id).delete { [weak self] error in
                 if let error = error {
                     self?.showError("Failed to delete goal: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -232,7 +243,7 @@ class DataManager: ObservableObject {
     
     // MARK: - Calendar Events
     private func setupEventsListener(userId: String) {
-        let listener = db.collection("users").document(userId).collection("events")
+        let listener = db?.collection("users").document(userId).collection("events")
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     self?.showError(error.localizedDescription)
@@ -241,16 +252,20 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.events = documents.compactMap { doc -> CalendarEvent? in
+                let events = documents.compactMap { doc -> CalendarEvent? in
                     try? doc.data(as: CalendarEvent.self)
                 }
+                
+                DispatchQueue.main.async {
+                    self?.events = events
+                }
             }
-        listeners.append(listener)
+        listeners.append(listener!)
     }
     
     func createEvent(_ event: CalendarEvent, userId: String) {
         do {
-            try db.collection("users").document(userId).collection("events")
+            try db?.collection("users").document(userId).collection("events")
                 .document(event.id).setData(from: event)
             
             // Immediately sync to widgets for real-time updates
@@ -289,7 +304,7 @@ class DataManager: ObservableObject {
         }
         
         do {
-            try db.collection("users").document(userId).collection("events")
+            try db?.collection("users").document(userId).collection("events")
                 .document(event.id).setData(from: updatedEvent)
             
             // Immediately sync to widgets for real-time updates
@@ -301,7 +316,7 @@ class DataManager: ObservableObject {
     }
     
     func deleteEvent(_ event: CalendarEvent, userId: String) {
-        db.collection("users").document(userId).collection("events")
+        db?.collection("users").document(userId).collection("events")
             .document(event.id).delete { [weak self] error in
                 if let error = error {
                     self?.showError("Failed to delete event: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -315,7 +330,7 @@ class DataManager: ObservableObject {
     
     // MARK: - Tasks
     private func setupTasksListener(userId: String) {
-        let listener = db.collection("users").document(userId).collection("tasks")
+        let listener = db?.collection("users").document(userId).collection("tasks")
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     self?.showError(error.localizedDescription)
@@ -324,16 +339,20 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                        self?.tasks = documents.compactMap { doc -> AppTask? in
-            try? doc.data(as: AppTask.self)
+                let tasks = documents.compactMap { doc -> AppTask? in
+                    try? doc.data(as: AppTask.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.tasks = tasks
                 }
             }
-        listeners.append(listener)
+        listeners.append(listener!)
     }
     
     func createTask(_ task: AppTask, userId: String) {
         do {
-            try db.collection("users").document(userId).collection("tasks")
+            try db?.collection("users").document(userId).collection("tasks")
                 .document(task.id).setData(from: task)
             
             // Immediately sync to widgets for real-time updates
@@ -372,7 +391,7 @@ class DataManager: ObservableObject {
         }
         
         do {
-            try db.collection("users").document(userId).collection("tasks")
+            try db?.collection("users").document(userId).collection("tasks")
                 .document(task.id).setData(from: updatedTask)
             
             // Immediately sync to widgets for real-time updates
@@ -384,7 +403,7 @@ class DataManager: ObservableObject {
     }
     
     func deleteTask(_ task: AppTask, userId: String) {
-        db.collection("users").document(userId).collection("tasks")
+        db?.collection("users").document(userId).collection("tasks")
             .document(task.id).delete { [weak self] error in
                 if let error = error {
                     self?.showError("Failed to delete task: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -398,7 +417,7 @@ class DataManager: ObservableObject {
     
     // MARK: - Notes
     private func setupNotesListener(userId: String) {
-        let listener = db.collection("users").document(userId).collection("notes")
+        let listener = db?.collection("users").document(userId).collection("notes")
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     self?.showError(error.localizedDescription)
@@ -407,16 +426,20 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.notes = documents.compactMap { doc -> Note? in
+                let notes = documents.compactMap { doc -> Note? in
                     try? doc.data(as: Note.self)
                 }
+                
+                DispatchQueue.main.async {
+                    self?.notes = notes
+                }
             }
-        listeners.append(listener)
+        listeners.append(listener!)
     }
     
     func createNote(_ note: Note, userId: String) {
         do {
-            try db.collection("users").document(userId).collection("notes")
+            try db?.collection("users").document(userId).collection("notes")
                 .document(note.id).setData(from: note)
             // Sync to widgets
             WidgetDataService.shared.syncDataForWidgets()
@@ -430,7 +453,7 @@ class DataManager: ObservableObject {
         updatedNote.updatedAt = Date()
         
         do {
-            try db.collection("users").document(userId).collection("notes")
+            try db?.collection("users").document(userId).collection("notes")
                 .document(note.id).setData(from: updatedNote)
             // Sync to widgets
             WidgetDataService.shared.syncDataForWidgets()
@@ -440,7 +463,7 @@ class DataManager: ObservableObject {
     }
     
     func deleteNote(_ note: Note, userId: String) {
-        db.collection("users").document(userId).collection("notes")
+        db?.collection("users").document(userId).collection("notes")
             .document(note.id).delete { [weak self] error in
                 if let error = error {
                     self?.showError("Failed to delete note: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -453,7 +476,7 @@ class DataManager: ObservableObject {
     
     // MARK: - Accountability Groups
     private func setupGroupsListener(userId: String) {
-        let listener = db.collection("accountabilityGroups")
+        let listener = db?.collection("accountabilityGroups")
             .whereField("members", arrayContains: userId)
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
@@ -463,16 +486,20 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.accountabilityGroups = documents.compactMap { doc -> AccountabilityGroup? in
+                let accountabilityGroups = documents.compactMap { doc -> AccountabilityGroup? in
                     try? doc.data(as: AccountabilityGroup.self)
                 }
+                
+                DispatchQueue.main.async {
+                    self?.accountabilityGroups = accountabilityGroups
+                }
             }
-        listeners.append(listener)
+        listeners.append(listener!)
     }
     
     func createAccountabilityGroup(_ group: AccountabilityGroup) {
         do {
-            try db.collection("accountabilityGroups")
+            try db?.collection("accountabilityGroups")
                 .document(group.id).setData(from: group)
         } catch {
             showError("Failed to create accountability group: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -484,7 +511,7 @@ class DataManager: ObservableObject {
         updatedGroup.updatedAt = Date()
         
         do {
-            try db.collection("accountabilityGroups")
+            try db?.collection("accountabilityGroups")
                 .document(group.id).setData(from: updatedGroup)
         } catch {
             showError("Failed to update accountability group: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -493,7 +520,7 @@ class DataManager: ObservableObject {
     
     // MARK: - Encouragements
     private func setupEncouragementListener(userId: String) {
-        let listener = db.collection("encouragements")
+        let listener = db?.collection("encouragements")
             .whereField("toUserId", isEqualTo: userId)
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
@@ -503,16 +530,20 @@ class DataManager: ObservableObject {
                 
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.encouragements = documents.compactMap { doc -> Encouragement? in
+                let encouragements = documents.compactMap { doc -> Encouragement? in
                     try? doc.data(as: Encouragement.self)
                 }
+                
+                DispatchQueue.main.async {
+                    self?.encouragements = encouragements
+                }
             }
-        listeners.append(listener)
+        listeners.append(listener!)
     }
     
     func sendEncouragement(_ encouragement: Encouragement) {
         do {
-            try db.collection("encouragements")
+            try db?.collection("encouragements")
                 .document(encouragement.id).setData(from: encouragement)
         } catch {
             showError("Failed to send encouragement: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -524,7 +555,7 @@ class DataManager: ObservableObject {
         updatedEncouragement.readAt = Date()
         
         do {
-            try db.collection("encouragements")
+            try db?.collection("encouragements")
                 .document(encouragement.id).setData(from: updatedEncouragement)
         } catch {
             showError("Failed to mark encouragement as read: \(error.localizedDescription)", suggestion: "Please try again or check your network connection.")
@@ -595,7 +626,7 @@ class DataManager: ObservableObject {
         for (collection, ids) in collections {
             for id in ids {
                 group.enter()
-                db.collection("users").document(userId).collection(collection).document(id).delete { _ in
+                db?.collection("users").document(userId).collection(collection).document(id).delete { _ in
                     group.leave()
                 }
             }
@@ -603,13 +634,13 @@ class DataManager: ObservableObject {
         // Accountability groups and encouragements are global collections
         for groupObj in accountabilityGroups where groupObj.members.contains(where: { $0.id == userId }) {
             group.enter()
-            db.collection("accountabilityGroups").document(groupObj.id).delete { _ in
+            db?.collection("accountabilityGroups").document(groupObj.id).delete { _ in
                 group.leave()
             }
         }
         for encouragement in encouragements where encouragement.toUserId == userId {
             group.enter()
-            db.collection("encouragements").document(encouragement.id).delete { _ in
+            db?.collection("encouragements").document(encouragement.id).delete { _ in
                 group.leave()
             }
         }
@@ -648,7 +679,7 @@ class DataManager: ObservableObject {
         
         // Update the goal in Firestore
         do {
-            try db.collection("users").document(userId).collection("goals")
+            try db?.collection("users").document(userId).collection("goals")
                 .document(goalId).setData(from: updatedGoal)
             print("✅ DataManager: Goal progress updated successfully in Firestore")
         } catch {
@@ -738,12 +769,14 @@ class DataManager: ObservableObject {
     }
     
     private func showError(_ message: String, suggestion: String? = nil) {
-        if let suggestion = suggestion {
-            self.errorMessage = "\(message)\nSuggestion: \(suggestion)"
-        } else {
-            self.errorMessage = message
+        DispatchQueue.main.async {
+            if let suggestion = suggestion {
+                self.errorMessage = "\(message)\nSuggestion: \(suggestion)"
+            } else {
+                self.errorMessage = message
+            }
+            self.showError = true
         }
-        self.showError = true
     }
     
     func updateUser(_ user: User, userId: String, completion: @escaping (Bool) -> Void) {

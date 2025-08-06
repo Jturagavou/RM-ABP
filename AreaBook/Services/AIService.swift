@@ -3,7 +3,7 @@ import FirebaseFirestore
 import FirebaseAuth
 
 class AIService: ObservableObject {
-    private let db = Firestore.firestore()
+    private var db: Firestore?
     
     // MARK: - Published Properties
     @Published var currentSuggestions: [AISuggestion] = []
@@ -14,8 +14,17 @@ class AIService: ObservableObject {
     
     // MARK: - Singleton
     static let shared = AIService()
+    private var isInitialized = false
     
     private init() {
+        // Don't access Firebase services in init
+    }
+    
+    func configure() {
+        guard !isInitialized else { return }
+        isInitialized = true
+        
+        self.db = Firestore.firestore()
         setupAuthListener()
     }
     
@@ -47,15 +56,12 @@ class AIService: ObservableObject {
     
     // MARK: - User Profile Management
     func loadUserProfile(userId: String) {
-        db.collection("users").document(userId).getDocument { [weak self] document, error in
+        db?.collection("users").document(userId).getDocument { [weak self] document, error in
             DispatchQueue.main.async {
-                if let document = document, document.exists {
-                    do {
-                        self?.userProfile = try document.data(as: User.self)
-                    } catch {
-                        print("Error decoding user profile: \(error)")
-                        self?.createDefaultUserProfile(userId: userId)
-                    }
+                if let document = document, document.exists,
+                   let userData = document.data(),
+                   let user = User(dictionary: userData) {
+                    self?.userProfile = user
                 } else {
                     self?.createDefaultUserProfile(userId: userId)
                 }

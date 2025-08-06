@@ -262,7 +262,7 @@ public enum WidgetMood: String, Codable, CaseIterable {
 class WidgetDataService: ObservableObject {
     static let shared = WidgetDataService()
     
-    private let db = Firestore.firestore()
+    private var db: Firestore?
     
     // MARK: - Sync Coordination and Performance
     private let syncQueue = DispatchQueue(label: "widget.sync", qos: .utility)
@@ -275,6 +275,11 @@ class WidgetDataService: ObservableObject {
     }
     
     private init() {}
+    
+    func configure() {
+        // Initialize Firestore after Firebase is configured
+        self.db = Firestore.firestore()
+    }
     
     // MARK: - App Group Validation
     private func validateAppGroupSetup() -> Bool {
@@ -410,9 +415,8 @@ class WidgetDataService: ObservableObject {
                 
                 let keyIndicators = documents.compactMap { document -> WidgetKeyIndicator? in
                     do {
-                        let data = document.data()
-                        let jsonData = try JSONSerialization.data(withJSONObject: data)
-                        return try JSONDecoder().decode(WidgetKeyIndicator.self, from: jsonData)
+                        // Use Firebase's built-in decoding instead of JSONSerialization to handle FIRTimestamp
+                        return try document.data(as: WidgetKeyIndicator.self)
                     } catch {
                         print("❌ WidgetDataService: Failed to decode key indicator \(document.documentID): \(error)")
                         return nil
@@ -447,9 +451,8 @@ class WidgetDataService: ObservableObject {
                 
                 let tasks = documents.compactMap { document -> WidgetAppTask? in
                     do {
-                        let data = document.data()
-                        let jsonData = try JSONSerialization.data(withJSONObject: data)
-                        return try JSONDecoder().decode(WidgetAppTask.self, from: jsonData)
+                        // Use Firebase's built-in decoding instead of JSONSerialization to handle FIRTimestamp
+                        return try document.data(as: WidgetAppTask.self)
                     } catch {
                         print("❌ WidgetDataService: Failed to decode task \(document.documentID): \(error)")
                         return nil
@@ -484,9 +487,8 @@ class WidgetDataService: ObservableObject {
                 
                 let events = documents.compactMap { document -> WidgetCalendarEvent? in
                     do {
-                        let data = document.data()
-                        let jsonData = try JSONSerialization.data(withJSONObject: data)
-                        return try JSONDecoder().decode(WidgetCalendarEvent.self, from: jsonData)
+                        // Use Firebase's built-in decoding instead of JSONSerialization to handle FIRTimestamp
+                        return try document.data(as: WidgetCalendarEvent.self)
                     } catch {
                         print("❌ WidgetDataService: Failed to decode event \(document.documentID): \(error)")
                         return nil
@@ -516,9 +518,8 @@ class WidgetDataService: ObservableObject {
                 
                 let goals = documents.compactMap { document -> WidgetGoal? in
                     do {
-                        let data = document.data()
-                        let jsonData = try JSONSerialization.data(withJSONObject: data)
-                        return try JSONDecoder().decode(WidgetGoal.self, from: jsonData)
+                        // Use Firebase's built-in decoding instead of JSONSerialization to handle FIRTimestamp
+                        return try document.data(as: WidgetGoal.self)
                     } catch {
                         print("❌ WidgetDataService: Failed to decode goal \(document.documentID): \(error)")
                         return nil
@@ -552,9 +553,8 @@ class WidgetDataService: ObservableObject {
                 
                 let notes = documents.compactMap { document -> WidgetNote? in
                     do {
-                        let data = document.data()
-                        let jsonData = try JSONSerialization.data(withJSONObject: data)
-                        return try JSONDecoder().decode(WidgetNote.self, from: jsonData)
+                        // Use Firebase's built-in decoding instead of JSONSerialization to handle FIRTimestamp
+                        return try document.data(as: WidgetNote.self)
                     } catch {
                         print("❌ WidgetDataService: Failed to decode note \(document.documentID): \(error)")
                         return nil
@@ -584,9 +584,8 @@ class WidgetDataService: ObservableObject {
                 }
                 
                 do {
-                    let data = document.data()
-                    let jsonData = try JSONSerialization.data(withJSONObject: data)
-                    let wellnessData = try JSONDecoder().decode(WidgetWellnessData.self, from: jsonData)
+                    // Use Firebase's built-in decoding instead of JSONSerialization to handle FIRTimestamp
+                    let wellnessData = try document.data(as: WidgetWellnessData.self)
                     
                     let saveResult = WidgetDataUtilities.saveData(wellnessData, forKey: WidgetDataKeys.wellnessData)
                     print("📊 WidgetDataService: Wellness data sync result: \(saveResult)")
